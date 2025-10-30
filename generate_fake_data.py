@@ -93,6 +93,11 @@ def generate_fake_billing_data(number_of_projects=NUMBER_OF_PROJECTS):
 def upload_to_bq(data, project_id, dataset_name, table_name):
   import pandas as pd
   client_bq = google.cloud.bigquery.Client()
-  table_id = f"{PROJECT_ID}.{DATASET_NAME}.{TABLE_NAME}"
+  table_id = f"{project_id}.{dataset_name}.{table_name}"
   job = client_bq.load_table_from_dataframe(pd.DataFrame(data), table_id)
   job.result()
+
+if __name__ == "__main__":
+    fake_billing_data = generate_fake_billing_data()
+    upload_to_bq(data=fake_billing_data, project_id=constants.PROJECT_ID, dataset_name=constants.DATASET_NAME, table_name=constants.TABLE_NAME)
+    
