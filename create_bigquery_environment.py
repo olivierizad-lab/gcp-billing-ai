@@ -1,3 +1,4 @@
+import constants
 import google.cloud.bigquery
 
 def create_dataset(job_config):
@@ -40,10 +41,10 @@ def create_table(job_config):
 
 if __name__ == "__main__":
     bigquery_config = {
-        "project_id": PROJECT_ID, 
-        "dataset_id": f"{PROJECT_ID}.{DATASET_NAME}",
-        "table_name": TABLE_NAME,
-        "table_fields": TABLE_FIELDS,
+        "project_id": constants.PROJECT_ID, 
+        "dataset_id": f"{constants.PROJECT_ID}.{constants.DATASET_NAME}",
+        "table_name": constants.TABLE_NAME,
+        "table_fields": constants.TABLE_FIELDS,
         "dataset_location": "us"
     }
     create_dataset(bigquery_config)
