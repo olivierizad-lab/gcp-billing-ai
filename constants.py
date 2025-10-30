@@ -1,3 +1,5 @@
+DEFAULT_NUMBER_OF_PROJECTS = 100
+
 GCP_SERVICES = ["Compute Engine",
 "VMWare Engine",
 "BigQuery Reservation API",
