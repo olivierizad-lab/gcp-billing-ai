@@ -38,13 +38,13 @@ def create_table(job_config):
             print(message)
     return True
 
-# To create the bigquery environment from scratch:
-# bigquery_config = {
-#     "project_id": PROJECT_ID, 
-#     "dataset_id": f"{PROJECT_ID}.{DATASET_NAME}",
-#     "table_name": TABLE_NAME,
-#     "table_fields": TABLE_FIELDS,
-#     "dataset_location": "us"
-# }
-# create_dataset(bigquery_config)
-# create_table(bigquery_config)
+if __name__ == "__main__":
+    bigquery_config = {
+        "project_id": PROJECT_ID, 
+        "dataset_id": f"{PROJECT_ID}.{DATASET_NAME}",
+        "table_name": TABLE_NAME,
+        "table_fields": TABLE_FIELDS,
+        "dataset_location": "us"
+    }
+    create_dataset(bigquery_config)
+    create_table(bigquery_config)
