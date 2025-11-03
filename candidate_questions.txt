@@ -1,0 +1,3 @@
+Could you give me the TLA with the highest overall cost spend? Please output the results in tabular format
+Could you give me the projects with the highest cost spend for the month of October of 2025? Please output the results in tabular format
+Could you give me the projects with highest month to month cost spendings for the months of september to october of 2025? Please output the results in tabular format

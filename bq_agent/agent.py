@@ -11,7 +11,7 @@ from google.genai import types
 AGENT_NAME = "bigquery_agent"
 APP_NAME = "bigquery_app"
 USER_ID = "gap-billing-agent@qwiklabs-asl-04-8e9f23e85ced.iam.gserviceaccount.com"
-# SESSION_ID = "1234"
+SESSION_ID = "session_001"
 GEMINI_MODEL = "gemini-2.0-flash"
 
 # Define a tool configuration to block any write operations
