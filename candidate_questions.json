@@ -1,14 +1,26 @@
 [
     {
-        "prompt": "Could you give me the top 3 TLAs with the highest overall cost spend? Please output the results in a tabular format",
+        "prompt": "Could you give me the top 3 TLAs with the highest overall cost spend?",
         "query": "SELECT tla, SUM(cost) as metric FROM `qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data` GROUP BY ALL ORDER BY metric DESC LIMIT 3"
     },
     {
-        "prompt": "Could you give me the top 5 projects with the highest cost spend for the month of October of 2025? Please output the results in a tabular format",
+        "prompt": "Could you give me the top 5 projects with the highest cost spend for the month of October of 2025?",
         "query": "SELECT project_id, SUM(cost) as metric FROM `qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data` WHERE invoice_month = '202510' GROUP BY ALL ORDER BY metric DESC LIMIT 5"
     },
     {
-        "prompt": "Could you give me the top 10 projects with highest month to month cost spendings for the months of september to october of 2025? Please output the results in a tabular format and please make sure the output returns 2 columns",
+        "prompt": "Could you give me the top 10 projects with highest month to month cost spendings for the months of september to october of 2025?",
         "query": "SELECT a.project_id, a.total_cost-b.total_cost as metric FROM (SELECT project_id, SUM(cost) as total_cost FROM `qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data` WHERE invoice_month = '202510' GROUP BY 1) a, (SELECT project_id, SUM(COST) as total_cost FROM `qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data` WHERE invoice_month = '202509' GROUP BY 1) b WHERE a.project_id = b.project_id ORDER BY metric DESC LIMIT 10"
+    },
+    {
+        "prompt": "Could you give me the top 5 services with highest month to month cost spendings for the months of september to october of 2025 used by all non prod environments?",
+        "query": "SELECT a.service_description, a.total_cost-b.total_cost as metric FROM (SELECT service_description, SUM(cost) as total_cost FROM `qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data` WHERE invoice_month = '202510' AND environment != 'prod' GROUP BY 1) a, (SELECT service_description, SUM(COST) as total_cost FROM `qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data` WHERE invoice_month = '202509'  AND environment != 'prod' GROUP BY 1) b WHERE a.service_description = b.service_description ORDER BY metric DESC LIMIT 5"
+    },
+    {
+        "prompt": "Could you give me the top 5 days that had the most day to day spendings?",
+        "query": "SELECT a.parameter, a.total_cost-b.total_cost as metric FROM (SELECT date(usage_start_time)as parameter, SUM(cost) as total_cost FROM `qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data` GROUP BY 1 ) a, (SELECT date(usage_start_time) as parameter, SUM(COST) as total_cost FROM `qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data` GROUP BY 1) b WHERE a.parameter = DATE_ADD(b.parameter, INTERVAL 1 DAY) ORDER BY metric DESC LIMIT 5"
+    },
+    {
+        "prompt": "Could you give me the top 5 days that had the most day to day spendings? We are interested in cost changes for 2 consecutive days, therefore please make sure to ignore the days that do not have a previous day",
+        "query": "SELECT a.parameter, a.total_cost-b.total_cost as metric FROM (SELECT date(usage_start_time)as parameter, SUM(cost) as total_cost FROM `qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data` GROUP BY 1 ) a, (SELECT date(usage_start_time) as parameter, SUM(COST) as total_cost FROM `qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data` GROUP BY 1) b WHERE a.parameter = DATE_ADD(b.parameter, INTERVAL 1 DAY) ORDER BY metric DESC LIMIT 5"
     }
 ]
