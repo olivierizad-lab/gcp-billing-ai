@@ -1,6 +1,7 @@
 import asyncio
 import bq_agent.agent as agent
 import constants
+import datetime
 from dotenv import load_dotenv
 from google.adk.sessions import InMemorySessionService
 from google.adk.runners import Runner
@@ -8,12 +9,17 @@ import google.cloud.bigquery
 from google.genai import types
 import json
 import re
+import random
 
 load_dotenv()
 
+def generate_session_id():
+    hexa = "0123456789abdef"
+    return "session_" + "".join([random.choice(hexa) for _ in range(10)])
+
 APP_NAME = "agents"
 USER_ID = "gap-billing-agent@qwiklabs-asl-04-8e9f23e85ced.iam.gserviceaccount.com"
-SESSION_ID = "session_001"
+SESSION_ID = generate_session_id()
 
 def get_data_from_bq(query):
     data = []
@@ -98,7 +104,11 @@ def parse_agent_response(agent_response_text):
     data = []
     first_line_found = False
     for line in lines:
-        if re.match("^\|\-|\+.*", line) and not first_line_found:
+        if re.match("^\| :-+ \| :-+ \|", line):
+            line = re.sub(":", "-",line)
+            line = re.sub(" ", "-", line)
+
+        if re.match("^\|\-|\-+.*", line) and not first_line_found:
             first_line_found = True
             continue
         if re.match("^```", line) and first_line_found:
@@ -115,6 +125,7 @@ if __name__ == "__main__":
     print(agent_metadata)
     runner = agent_metadata["runner"]
     session = agent_metadata["session"]
+
     for line in prompts_and_queries:
         prompt = line["prompt"]
         query = line["query"]
@@ -128,12 +139,17 @@ if __name__ == "__main__":
         print("Result from human query:")
         print(query)
         keys = list(result[0].keys())
-        agent_validation = True
+        agent_validation = len(agent_data) > 0
         for i in range(len(result)):
             row = result[i]
-            validation = row[keys[0]] == agent_data[i][0] and round(row[keys[1]],2) == round(float(agent_data[i][1]),2)
+
+            parameter = row[keys[0]]
+            metric = row[keys[1]]
+            if type(parameter) == datetime.date:
+                parameter = parameter.strftime("%Y-%m-%d")
+            validation = len(agent_data) > 0 and parameter == agent_data[i][0] and round(metric,2) == round(float(agent_data[i][1]),2)
             agent_validation = agent_validation and validation
-            print(f"{row[keys[0]]}\t{row[keys[1]]}\tvalidation={validation}")
+            print(f"{parameter}\t{metric}\tvalidation={validation}")
 
         print(f"\nWas the Agent correct? {agent_validation}")
         print("-"*28 + "\n")
