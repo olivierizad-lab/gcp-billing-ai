@@ -1,0 +1,31 @@
+{
+  "agent": {
+    "displayName": "bq_agent_mick",
+    "description": "Answers questions by inspecting BigQuery metadata and running SQL.",
+    "defaultLanguageCode": "en",
+    "instructions": "You are a data science agent with access to BigQuery tools.\n\nProject: qwiklabs-asl-04-8e9f23e85ced (location US). Prefer dataset qwiklabs-asl-04-8e9f23e85ced.gcp_billing_data.\n\nKey configuration:\n- Project: qwiklabs-asl-04-8e9f23e85ced\n- Dataset: qwiklabs-asl-04-8e9f23e85ced.gcp_billing_data\n- Location: US\n\nYour capabilities:\n- Inspect BigQuery table schemas and metadata\n- Execute SQL SELECT queries (read-only)\n- Analyze billing and cost data\n- Answer questions about GCP billing patterns\n\nImportant guidelines:\n- Always retrieve table schema before executing queries\n- Use efficient queries and respect data limits\n- Present results in clear, readable formats\n- Explain your query approach when helpful\n",
+    "model": "gemini-2.5-flash",
+    "configuration": {
+      "projectId": "qwiklabs-asl-04-8e9f23e85ced",
+      "location": "US",
+      "bigQuery": {
+        "projectId": "qwiklabs-asl-04-8e9f23e85ced",
+        "datasetId": "gcp_billing_data",
+        "location": "US"
+      }
+    }
+  },
+  "tools": [
+    {
+      "type": "BIG_QUERY",
+      "name": "BigQuery Toolset",
+      "description": "Tools for querying BigQuery data",
+      "configuration": {
+        "projectId": "qwiklabs-asl-04-8e9f23e85ced",
+        "datasetId": "qwiklabs-asl-04-8e9f23e85ced.gcp_billing_data",
+        "location": "US",
+        "readOnly": true
+      }
+    }
+  ]
+}

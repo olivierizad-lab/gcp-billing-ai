@@ -197,3 +197,21 @@ For production:
 - Consider using a config management library
 - Document required environment variables
 - Add configuration validation at startup
+
+## Deployment
+
+This agent can be deployed for production use in several ways:
+
+1. **Cloud Run Service** (Recommended) - Package as a web service
+2. **Vertex AI Agent Builder Console** - Manual configuration
+3. **Local Development** - Run directly with `main.py`
+
+See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for detailed deployment instructions.
+
+Quick info:
+```bash
+# Get deployment options
+python bq_agent_mick/deploy_python.py --project YOUR_PROJECT_ID
+```
+
+**Note**: ADK doesn't have a direct "deploy to Vertex AI" command. See DEPLOYMENT.md for deployment strategies.
