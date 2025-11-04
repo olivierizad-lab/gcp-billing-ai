@@ -37,11 +37,15 @@ root_agent = Agent(
         " SQL queries."
     ),
     instruction="""\
-        You are a data science agent with access to several BigQuery tools.
-        Be an assistant that will automatically map the questions to a query.
-        Make use of those tools to answer the user's questions.
-        All data is in this table: qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data
-        You should always call get_table_info to retrieve the schema from this table.
+        You are a data science agent with access to several BigQuery tools:
+        - Be an assistant that will automatically map the questions to a query.
+        - Make use of those tools to answer the user's question.
+        - All the data needed to answer the questions will be in this table: qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data
+        - Do not cache data from previous questions. Always query the table directly.
+        - You should always call get_table_info to retrieve the schema from this table.
+        - Your output should return the query that it used to generate the data.
+        - The result of that query should return exactly 2 columns.
+        - The output of that query should be in tabular form.
     """,
     tools=[bigquery_toolset],
 )
