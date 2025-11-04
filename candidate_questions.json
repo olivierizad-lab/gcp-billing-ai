@@ -1,0 +1,14 @@
+[
+    {
+        "prompt": "Could you give me the top 3 TLAs with the highest overall cost spend? Please output the results in a tabular format",
+        "query": "SELECT tla, SUM(cost) as metric FROM `qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data` GROUP BY ALL ORDER BY metric DESC LIMIT 3"
+    },
+    {
+        "prompt": "Could you give me the top 5 projects with the highest cost spend for the month of October of 2025? Please output the results in a tabular format",
+        "query": "SELECT project_id, SUM(cost) as metric FROM `qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data` WHERE invoice_month = '202510' GROUP BY ALL ORDER BY metric DESC LIMIT 5"
+    },
+    {
+        "prompt": "Could you give me the top 10 projects with highest month to month cost spendings for the months of september to october of 2025? Please output the results in a tabular format and please make sure the output returns 2 columns",
+        "query": "SELECT a.project_id, a.total_cost-b.total_cost as metric FROM (SELECT project_id, SUM(cost) as total_cost FROM `qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data` WHERE invoice_month = '202510' GROUP BY 1) a, (SELECT project_id, SUM(COST) as total_cost FROM `qwiklabs-asl-04-8e9f23e85ced.billing_dataset.fake_billing_data` WHERE invoice_month = '202509' GROUP BY 1) b WHERE a.project_id = b.project_id ORDER BY metric DESC LIMIT 10"
+    }
+]

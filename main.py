@@ -7,6 +7,7 @@ from google.adk.runners import Runner
 import google.cloud.bigquery
 from google.genai import types
 import json
+import re
 
 load_dotenv()
 
@@ -66,29 +67,73 @@ async def call_agent_async(query: str, runner, user_id, session_id):
             break  # Stop processing events once the final response is found
 
     print(f"<<< Agent Response: {final_response_text}")
+    return final_response_text
+
+def load_data(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+def parse_agent_response2(agent_response_text):
+    lines = agent_response_text.split("\n")
+    data = []
+    first_line_found = False
+    second_line_found = False
+    for line in lines:
+        if re.match("^\+\-+\+.*", line) and not first_line_found:
+            first_line_found = True
+            continue
+        if re.match("^\+\-+\+.*", line) and not second_line_found:
+            second_line_found = True
+            continue
+        if re.match("^```", line) and second_line_found:
+            break
+        if second_line_found:
+            data.append(re.split(" +\| +", re.sub(" +\|$", "", re.sub("^\| +", "", line))))
+    return data
+
+def parse_agent_response(agent_response_text):
+    if re.match(".*\n\+\-+\+.*", agent_response_text):
+        return parse_agent_response2(agent_response_text)
+    lines = agent_response_text.split("\n")
+    data = []
+    first_line_found = False
+    for line in lines:
+        if re.match("^\|\-|\+.*", line) and not first_line_found:
+            first_line_found = True
+            continue
+        if re.match("^```", line) and first_line_found:
+            break
+        if first_line_found:
+            content = re.split(" +\| +", re.sub(" +\|$", "", re.sub("^\| +", "", line)))
+            if len(content) > 0 and len(content[0]) > 0:
+                data.append(content)
+    return data
 
 if __name__ == "__main__":
+    prompts_and_queries = load_data("candidate_questions.json")
     agent_metadata = asyncio.run(load_agent())
     print(agent_metadata)
     runner = agent_metadata["runner"]
     session = agent_metadata["session"]
-    # query = "Could you give me the top 10 services by highest cost spendings? Please output the results in tabular format"
-    query = "Could you give me the projects with highest month to month cost spendings for the months of september to october of 2025? Please output the results in tabular format"
-    asyncio.run(call_agent_async(query, runner, USER_ID, SESSION_ID))
-    TABLE_ID = '.'.join([constants.PROJECT_ID, constants.DATASET_NAME, constants.TABLE_NAME])
-    print(TABLE_ID)
-    # test_query = f"SELECT tla, SUM(cost) as total_cost FROM `{TABLE_ID}` WHERE invoice_month = '202510' GROUP BY ALL ORDER BY SUM(cost) DESC LIMIT 3"
-    test_query = f"""
-        SELECT 
-            a.project_id, b.total_cost, a.total_cost, a.total_cost-b.total_cost as metric
-        FROM 
-            (SELECT project_id, SUM(cost) as total_cost FROM`{TABLE_ID}` WHERE invoice_month = '202510' GROUP BY 1) a,
-            (SELECT project_id, SUM(COST) as total_cost FROM`{TABLE_ID}` WHERE invoice_month = '202509' GROUP BY 1) b
-        WHERE a.project_id = b.project_id
-        ORDER BY metric DESC
-        LIMIT 10
-    """
-    result = get_data_from_bq(test_query)
-    print("Result from human query:")
-    for row in result:
-        print(json.dumps(row))
+    for line in prompts_and_queries:
+        prompt = line["prompt"]
+        query = line["query"]
+
+        # Result from Agent
+        print("Result from agent:")
+        agent_response_text = asyncio.run(call_agent_async(prompt, runner, USER_ID, SESSION_ID))
+        agent_data = parse_agent_response(agent_response_text)
+        # Result from BigQuery
+        result = get_data_from_bq(query)
+        print("Result from human query:")
+        print(query)
+        keys = list(result[0].keys())
+        agent_validation = True
+        for i in range(len(result)):
+            row = result[i]
+            validation = row[keys[0]] == agent_data[i][0] and round(row[keys[1]],2) == round(float(agent_data[i][1]),2)
+            agent_validation = agent_validation and validation
+            print(f"{row[keys[0]]}\t{row[keys[1]]}\tvalidation={validation}")
+
+        print(f"\nWas the Agent correct? {agent_validation}")
+        print("-"*28 + "\n")
