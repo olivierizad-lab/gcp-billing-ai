@@ -18,7 +18,7 @@ async def _build_root_agent():
     # (defensive) keep only BigQuery tools in case any extra packages remain
     tools = [t for t in tools if "bigquery" in getattr(t, "name", "").lower()]
     return Agent(
-        name="bq_agent",
+        name="bq_agent_mick",
         model="gemini-2.5-flash",
         description="Answers questions by inspecting BigQuery metadata and running SQL.",
         instruction=(f"Project: {PROJECT_ID} (location {LOCATION}). Prefer dataset {DATASET}."),
