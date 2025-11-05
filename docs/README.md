@@ -14,6 +14,7 @@ This directory contains all project documentation for the GCP Billing Agent Gen 
 - **[GEN_AI_SOLUTION.md](./GEN_AI_SOLUTION.md)** - Complete solution documentation (architecture, features, API, troubleshooting)
 
 ### Deployment Guides
+- **[DEPLOYMENT_CLOUD_RUN.md](./DEPLOYMENT_CLOUD_RUN.md)** - Complete Cloud Run deployment guide (recommended)
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)** - General deployment guide
 - **[DEPLOYMENT_SIMPLE.md](./DEPLOYMENT_SIMPLE.md)** - Simple IAP deployment (no DNS required)
 - **[DEPLOYMENT_BACKEND.md](./DEPLOYMENT_BACKEND.md)** - Backend-specific deployment

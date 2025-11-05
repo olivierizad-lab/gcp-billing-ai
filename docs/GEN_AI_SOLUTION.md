@@ -458,17 +458,48 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment guides.
 
 **Common Issues:**
 - BigQuery: Grant `roles/bigquery.dataViewer` and `roles/bigquery.jobUser`
-- Firestore: Ensure service account has Firestore access
+- Firestore: Ensure service account has Firestore access (`roles/datastore.user`)
 - Agent Engine: Verify service account has Vertex AI permissions
+- Cloud Run: Verify service account has `roles/run.invoker` for IAP
 
 **Fix Permissions:**
 ```bash
 # BigQuery permissions
 make grant-bq-permissions
 
+# Firestore permissions (if history saving fails with 403)
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:agent-engine-api-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/datastore.user"
+
 # Check service accounts
-gcloud projects get-iam-policy YOUR_PROJECT_ID
+gcloud projects get-iam-policy YOUR_PROJECT_ID \
+  --flatten="bindings[].members" \
+  --filter="bindings.members:serviceAccount:agent-engine-api-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com"
 ```
+
+### Frontend Not Connecting to Backend (Cloud Run)
+
+**Symptoms:** CORS errors or "Failed to fetch" errors
+
+**Solutions:**
+1. **Verify API URL is embedded correctly**: The frontend JavaScript should contain the Cloud Run API URL, not `localhost:8000`
+2. **Hard refresh browser**: `Cmd+Shift+R` (Mac) or `Ctrl+Shift+R` (Windows/Linux)
+3. **Check CORS configuration**: Verify `CORS_ALLOWED_ORIGINS` is set on backend:
+   ```bash
+   gcloud run services describe agent-engine-api \
+     --region=us-central1 \
+     --project=YOUR_PROJECT_ID \
+     --format="value(spec.template.spec.containers[0].env)"
+   ```
+4. **Rebuild frontend**: If the API URL is wrong, rebuild with correct URL:
+   ```bash
+   cd web/frontend
+   API_URL="https://agent-engine-api-xxxxx.run.app"
+   gcloud builds submit --config=cloudbuild.yaml \
+     --substitutions=_API_URL="$API_URL" \
+     . --project=YOUR_PROJECT_ID
+   ```
 
 ---
 

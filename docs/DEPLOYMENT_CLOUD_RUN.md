@@ -180,17 +180,25 @@ Make sure these files exist in the Docker image (they're copied in the Dockerfil
 
 ### Frontend Configuration
 
-The frontend needs to know the backend API URL. Options:
+The frontend needs to know the backend API URL. The deployment scripts handle this automatically, but if you need to rebuild manually:
 
-1. **Environment variable at build time:**
+1. **Using Cloud Build (Recommended):**
+   ```bash
+   cd web/frontend
+   gcloud builds submit --config=cloudbuild.yaml \
+     --substitutions=_API_URL="https://api-url.run.app" \
+     . --project="$PROJECT_ID"
+   ```
+   
+   The `cloudbuild.yaml` and `Dockerfile` are configured to pass `VITE_API_URL` as a build argument.
+
+2. **Manual build:**
    ```bash
    export VITE_API_URL="https://api-url.run.app"
    npm run build
    ```
 
-2. **Runtime configuration:**
-   - Update `App.jsx` to read from environment
-   - Or use Cloud Run environment variables
+**Important:** The Dockerfile uses a build argument (`ARG VITE_API_URL`) to ensure the API URL is embedded at build time. This is required because Vite environment variables are compiled into the JavaScript bundle.
 
 ## Post-Deployment Steps
 
@@ -226,19 +234,25 @@ cat bq_agent_mick/.env
 
 ### 4. Update Frontend API URL
 
-If using separate URLs, update the frontend to point to the backend:
+The deployment script (`03-applications-iap.sh`) automatically handles this by:
+1. Getting the deployed API URL
+2. Building the frontend with the API URL using Cloud Build substitutions
+3. Configuring CORS on the backend to allow the frontend URL
 
-**Option 1: Rebuild with API URL**
+If you need to rebuild manually:
 ```bash
 cd web/frontend
-export VITE_API_URL="https://agent-engine-api-xxxxx.run.app"
-npm run build
-# Redeploy frontend
+API_URL="https://agent-engine-api-xxxxx.run.app"
+gcloud builds submit --config=cloudbuild.yaml \
+  --substitutions=_API_URL="$API_URL" \
+  . --project="$PROJECT_ID"
+  
+# Then redeploy
+gcloud run deploy agent-engine-ui \
+  --image="gcr.io/$PROJECT_ID/agent-engine-ui:latest" \
+  --region="$REGION" \
+  --project="$PROJECT_ID"
 ```
-
-**Option 2: Use Load Balancer**
-- Deploy with load balancer
-- Frontend can use relative URLs: `/api/...`
 
 ## Troubleshooting
 
@@ -276,15 +290,33 @@ gcloud projects get-iam-policy "$PROJECT_ID" \
   --filter="bindings.members:agent-engine-api-sa@$PROJECT_ID.iam.gserviceaccount.com"
 ```
 
+**Firestore Permissions (if history saving fails):**
+If you see "403 Missing or insufficient permissions" when saving query history:
+```bash
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:agent-engine-api-sa@$PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/datastore.user"
+```
+
 ### Frontend Can't Connect to Backend
 
 **Check CORS configuration:**
 - Backend CORS should allow the frontend URL
 - Check `main.py` CORS settings
+- Verify `CORS_ALLOWED_ORIGINS` environment variable is set on the backend:
+  ```bash
+  gcloud run services describe agent-engine-api \
+    --region="$REGION" \
+    --project="$PROJECT_ID" \
+    --format="value(spec.template.spec.containers[0].env)"
+  ```
 
-**Verify API URL:**
-- Check browser console for API errors
-- Verify the API URL is correct in frontend
+**Verify API URL is embedded in frontend:**
+- The frontend JavaScript should contain the Cloud Run API URL, not `localhost:8000`
+- Check browser console for errors
+- Do a hard refresh (`Cmd+Shift+R` or `Ctrl+Shift+R`) to clear cached JavaScript
+- If still seeing localhost, the build may not have embedded the API URL correctly
+- Verify the Dockerfile receives `VITE_API_URL` as a build argument
 
 ## Cleanup
 
