@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """
-Simple module to query the deployed Agent Engine.
+Simple module to query the deployed Agent Engine for bq_agent.
 
 Usage:
-    from bq_agent_mick.query_agent import query_agent
+    from bq_agent.query_agent import query_agent
     
     response = query_agent("What are the total costs by top 10 services?")
     print(response)
 
 Or run as script:
-    python -m bq_agent_mick.query_agent "What are the total costs by top 10 services?"
+    python -m bq_agent.query_agent "What are the total costs by top 10 services?"
 """
 
 import os
 import sys
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment variables from .env file (try agent-specific first, then root)
@@ -21,7 +22,7 @@ agent_dir = Path(__file__).parent
 project_root = agent_dir.parent
 
 # Load agent-specific .env with override=True to ensure it takes precedence
-load_dotenv(agent_dir / ".env", override=True)  # Try bq_agent_mick/.env first
+load_dotenv(agent_dir / ".env", override=True)  # Try bq_agent/.env first
 # Load root .env without override so agent-specific values aren't overwritten
 load_dotenv(project_root / ".env", override=False)  # Then try root .env
 
@@ -41,6 +42,16 @@ def query_agent(query_text, user_id="default_user"):
     Returns:
         The agent's response text
     """
+    if not REASONING_ENGINE_ID:
+        print("✗ Error: REASONING_ENGINE_ID not set")
+        print("\nPlease set it in one of these ways:")
+        print("1. Create bq_agent/.env file with: REASONING_ENGINE_ID=your-id")
+        print("2. Export environment variable: export REASONING_ENGINE_ID=your-id")
+        print("3. Update REASONING_ENGINE_ID in this file (bq_agent/query_agent.py)")
+        print("\nTo find your REASONING_ENGINE_ID, run:")
+        print("  make list-deployments AGENT_NAME=bq_agent")
+        return None
+    
     try:
         from google.cloud import aiplatform
         from google.cloud.aiplatform.preview import reasoning_engines
@@ -54,7 +65,7 @@ def query_agent(query_text, user_id="default_user"):
         )
         
         # Query the agent
-        print(f"Querying agent: {query_text}")
+        print(f"Querying bq_agent: {query_text}")
         print(f"Project: {PROJECT_ID}, Location: {LOCATION}")
         print(f"Reasoning Engine ID: {REASONING_ENGINE_ID}")
         print("-" * 60)
@@ -174,10 +185,11 @@ def _query_via_rest(query_text, user_id="default_user"):
 def main():
     """Command-line interface."""
     if len(sys.argv) < 2:
-        print("Usage: python -m bq_agent_mick.query_agent 'Your question here'")
+        print("Usage: python -m bq_agent.query_agent 'Your question here'")
         print("\nOr use as a module:")
-        print("  from bq_agent_mick.query_agent import query_agent")
+        print("  from bq_agent.query_agent import query_agent")
         print("  response = query_agent('Your question')")
+        print("\nNote: Make sure REASONING_ENGINE_ID is set in bq_agent/.env or environment")
         sys.exit(1)
     
     query = " ".join(sys.argv[1:])

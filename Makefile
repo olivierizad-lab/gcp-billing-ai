@@ -1,4 +1,4 @@
-.PHONY: help deploy-agent-engine deploy-cloud-run deploy test-local setup check-prereqs clean lint format clean-all config info create-staging-bucket enable-apis test-adk-cli generate-service grant-bq-permissions
+.PHONY: help deploy-agent-engine deploy-bq-agent-mick deploy-bq-agent deploy-all-agents deploy-cloud-run deploy test-local setup check-prereqs clean lint format clean-all config info create-staging-bucket enable-apis test-adk-cli generate-service grant-bq-permissions list-deployments cleanup-deployments
 
 # Default target
 .DEFAULT_GOAL := help
@@ -10,6 +10,12 @@ AGENT_NAME ?= bq_agent_mick
 AGENT_DIR ?= bq_agent_mick
 STAGING_BUCKET ?= $(PROJECT_ID)-agent-engine-staging
 SERVICE_NAME ?= bq-agent-mick
+KEEP ?= 1
+CLEANUP_BEFORE ?= 
+NO_CLEANUP ?=
+
+# Agent directories that can be deployed
+AGENT_DIRS = bq_agent_mick bq_agent
 
 # Python version - Agent Engine supports 3.9, 3.10, 3.11, 3.12, 3.13
 # Try to find a supported version, defaulting to python3.13 if available
@@ -44,15 +50,22 @@ help: ## Show this help message
 	@echo "$(COLOR_BOLD)Variables (can be overridden):$(COLOR_RESET)"
 	@echo "  $(COLOR_YELLOW)PROJECT_ID$(COLOR_RESET)       = $(PROJECT_ID)"
 	@echo "  $(COLOR_YELLOW)LOCATION$(COLOR_RESET)         = $(LOCATION)"
-	@echo "  $(COLOR_YELLOW)AGENT_NAME$(COLOR_RESET)       = $(AGENT_NAME)"
+	@echo "  $(COLOR_YELLOW)AGENT_NAME$(COLOR_RESET)       = $(AGENT_NAME) (for deploy-agent-engine)"
+	@echo "  $(COLOR_YELLOW)AGENT_DIR$(COLOR_RESET)        = $(AGENT_DIR) (for deploy-agent-engine)"
 	@echo "  $(COLOR_YELLOW)STAGING_BUCKET$(COLOR_RESET)   = $(STAGING_BUCKET)"
 	@echo "  $(COLOR_YELLOW)SERVICE_NAME$(COLOR_RESET)     = $(SERVICE_NAME)"
 	@PYTHON_VERSION=$$($(PYTHON) --version 2>&1 | cut -d' ' -f2 2>/dev/null || echo "unknown"); \
 	echo "  $(COLOR_YELLOW)PYTHON$(COLOR_RESET)            = $(PYTHON) ($$PYTHON_VERSION)"
 	@echo ""
+	@echo "$(COLOR_BOLD)Available Agents:$(COLOR_RESET)"
+	@echo "  $(COLOR_CYAN)bq_agent_mick$(COLOR_RESET)      - BigQuery agent (alternative implementation)"
+	@echo "  $(COLOR_CYAN)bq_agent$(COLOR_RESET)           - BigQuery agent (production-ready)"
+	@echo ""
 	@echo "$(COLOR_BOLD)Examples:$(COLOR_RESET)"
-	@echo "  make deploy-agent-engine PROJECT_ID=my-project"
-	@echo "  make deploy PYTHON=python3.13"
+	@echo "  make deploy-bq-agent-mick PROJECT_ID=my-project"
+	@echo "  make deploy-bq-agent"
+	@echo "  make deploy-all-agents"
+	@echo "  make deploy-agent-engine AGENT_DIR=bq_agent"
 	@echo "  make deploy-cloud-run LOCATION=us-west1"
 	@echo "  make test-local"
 
@@ -89,24 +102,102 @@ setup: ## Set up the development environment
 	@echo "✓ Setup complete. Activate with: source .venv/bin/activate"
 	@echo "  Virtual environment uses: $$(.venv/bin/python --version)"
 
-deploy-agent-engine: check-prereqs ## Deploy agent to Vertex AI Agent Engine
+deploy-agent-engine: check-prereqs ## Deploy specified agent to Vertex AI Agent Engine (use AGENT_DIR variable). Automatically cleans up old deployments after deployment (keeps latest 1, like Cloud Run). Use KEEP=N to keep N deployments, NO_CLEANUP=1 to skip cleanup, or CLEANUP_BEFORE=1 to cleanup before deploying.
 	@if [ -z "$(PROJECT_ID)" ]; then \
 		echo "✗ Error: PROJECT_ID must be set"; \
 		echo "  Set it with: export PROJECT_ID=your-project"; \
-		echo "  Or override: make deploy-agent-engine PROJECT_ID=your-project"; \
+		echo "  Or override: make deploy-agent-engine PROJECT_ID=your-project AGENT_DIR=bq_agent"; \
+		exit 1; \
+	fi
+	@if [ ! -d "$(AGENT_DIR)" ]; then \
+		echo "✗ Error: Agent directory not found: $(AGENT_DIR)"; \
+		echo "  Available agents: $(AGENT_DIRS)"; \
 		exit 1; \
 	fi
 	@PYTHON_VERSION=$$($(PYTHON) --version 2>&1 | cut -d' ' -f2); \
-	echo "Deploying $(AGENT_NAME) to Vertex AI Agent Engine..."; \
+	echo "Deploying $(AGENT_NAME) ($(AGENT_DIR)) to Vertex AI Agent Engine..."; \
 	echo "Using $(PYTHON) ($$PYTHON_VERSION)"; \
 	echo "Project: $(PROJECT_ID)"; \
 	echo "Location: $(LOCATION)"; \
 	echo "Staging bucket: $(STAGING_BUCKET)"; \
-	$(PYTHON) $(AGENT_DIR)/deploy_agent_engine.py \
+	echo "Keeping latest deployments: $(KEEP)"; \
+	$(PYTHON) scripts/deploy_agent_engine.py \
+		--agent-dir $(AGENT_DIR) \
 		--project $(PROJECT_ID) \
 		--location $(LOCATION) \
 		--agent-name $(AGENT_NAME) \
-		--staging-bucket $(STAGING_BUCKET)
+		--staging-bucket $(STAGING_BUCKET) \
+		--keep $(KEEP) \
+		$(if $(CLEANUP_BEFORE),--cleanup-before) \
+		$(if $(NO_CLEANUP),--no-cleanup)
+
+deploy-bq-agent-mick: check-prereqs ## Deploy bq_agent_mick to Vertex AI Agent Engine
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		echo "✗ Error: PROJECT_ID must be set"; \
+		echo "  Set it with: export PROJECT_ID=your-project"; \
+		exit 1; \
+	fi
+	@$(MAKE) deploy-agent-engine AGENT_DIR=bq_agent_mick AGENT_NAME=bq_agent_mick
+
+deploy-bq-agent: check-prereqs ## Deploy bq_agent to Vertex AI Agent Engine
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		echo "✗ Error: PROJECT_ID must be set"; \
+		echo "  Set it with: export PROJECT_ID=your-project"; \
+		exit 1; \
+	fi
+	@$(MAKE) deploy-agent-engine AGENT_DIR=bq_agent AGENT_NAME=bq_agent
+
+deploy-all-agents: check-prereqs ## Deploy all agents to Vertex AI Agent Engine
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		echo "✗ Error: PROJECT_ID must be set"; \
+		echo "  Set it with: export PROJECT_ID=your-project"; \
+		exit 1; \
+	fi
+	@echo "Deploying all agents to Vertex AI Agent Engine..."
+	@echo "Agents: $(AGENT_DIRS)"
+	@echo ""
+	@for agent_dir in $(AGENT_DIRS); do \
+		echo "============================================================"; \
+		echo "Deploying $$agent_dir..."; \
+		echo "============================================================"; \
+		$(MAKE) deploy-agent-engine AGENT_DIR=$$agent_dir AGENT_NAME=$$agent_dir || exit 1; \
+		echo ""; \
+	done
+	@echo "✓ All agents deployed successfully!"
+
+list-deployments: ## List all Agent Engine deployments
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		PROJECT_ID=$$(gcloud config get-value project 2>/dev/null || echo ""); \
+		if [ -z "$$PROJECT_ID" ]; then \
+			echo "✗ Error: PROJECT_ID must be set"; \
+			exit 1; \
+		fi; \
+	fi; \
+	$(PYTHON) scripts/list_agent_engines.py \
+		--project $(PROJECT_ID) \
+		--location $(LOCATION) \
+		$(if $(AGENT_NAME),--filter-name $(AGENT_NAME),)
+
+cleanup-deployments: ## Clean up old Agent Engine deployments (use AGENT_NAME and KEEP variables)
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		PROJECT_ID=$$(gcloud config get-value project 2>/dev/null || echo ""); \
+		if [ -z "$$PROJECT_ID" ]; then \
+			echo "✗ Error: PROJECT_ID must be set"; \
+			exit 1; \
+		fi; \
+	fi
+	@if [ -z "$(AGENT_NAME)" ]; then \
+		echo "✗ Error: AGENT_NAME must be set"; \
+		echo "  Example: make cleanup-deployments AGENT_NAME=bq_agent_mick KEEP=1"; \
+		exit 1; \
+	fi
+	@KEEP=$${KEEP:-1}; \
+	$(PYTHON) scripts/cleanup_old_deployments.py \
+		--agent-name $(AGENT_NAME) \
+		--project $(PROJECT_ID) \
+		--location $(LOCATION) \
+		--keep $$KEEP \
+		$(if $(DRY_RUN),--dry-run,)
 
 deploy-cloud-run: check-prereqs ## Deploy agent as Cloud Run service (requires service.py)
 	@if [ -z "$(PROJECT_ID)" ]; then \
