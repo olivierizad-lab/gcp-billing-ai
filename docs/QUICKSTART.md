@@ -1,4 +1,4 @@
-# Quick Start Guide - ChatGCP
+# Quick Start Guide - GCP Billing Agent
 
 Get your React chat interface running in 5 minutes!
 

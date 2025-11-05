@@ -206,7 +206,7 @@ Open your frontend URL in a browser:
 https://agent-engine-ui-xxxxx-uc.a.run.app
 ```
 
-You should see the ChatGCP interface!
+You should see the GCP Billing Agent interface!
 
 ## Alternative: Deploy to Cloud Storage + Cloud CDN
 

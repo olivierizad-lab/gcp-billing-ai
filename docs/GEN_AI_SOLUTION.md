@@ -58,11 +58,12 @@ This Gen AI solution provides a comprehensive platform for deploying and interac
 ### Component Flow
 
 1. **User Interaction**: User sends message via React frontend
-2. **Backend Processing**: FastAPI backend receives request, includes session_id for context
-3. **Agent Engine**: Vertex AI Agent Engine processes query with conversation context
-4. **BigQuery Execution**: Agent executes SQL queries against BigQuery
-5. **Response Streaming**: Results stream back through backend to frontend
-6. **History Storage**: Query/response saved to Firestore for future reference
+2. **Context Building**: Frontend includes last 6 messages (conversation history) with the new message
+3. **Backend Processing**: FastAPI backend receives request with conversation context
+4. **Agent Engine**: Vertex AI Agent Engine processes query with conversation context embedded in message
+5. **BigQuery Execution**: Agent executes SQL queries against BigQuery
+6. **Response Streaming**: Results stream back through backend to frontend
+7. **History Storage**: Query/response saved to Firestore for future reference
 
 ---
 
@@ -92,10 +93,11 @@ This Gen AI solution provides a comprehensive platform for deploying and interac
 
 ### 4. Conversation Context
 
-- **Session Management**: Each conversation gets a unique session_id
-- **Context Retention**: Agent remembers previous messages in the same session
+- **Message History**: Last 6 messages (3 exchanges) included with each query
+- **Context Retention**: Agent sees conversation history embedded in the message
 - **Natural Conversations**: Support for follow-up questions and references
-- **Session Reset**: New session when clearing chat or loading old history
+- **History Loading**: When loading a history item, context is preserved for follow-up queries
+- **Session Tracking**: Session IDs used for tracking but not sent to Agent Engine
 
 ### 5. Deployment Management
 
@@ -251,12 +253,17 @@ Open browser: `http://localhost:3000`
 
 ### Conversation Context
 
-The agent maintains context within a conversation session:
+The agent maintains context within a conversation by sending previous messages with each new query:
 
 1. **First Query**: Creates new session automatically
-2. **Follow-up Queries**: Use same session_id (automatic)
+2. **Follow-up Queries**: Includes last 6 messages (3 exchanges) as context in the request
 3. **Clear Chat**: Starts new session
-4. **Load Old History**: Starts new session (old context not loaded)
+4. **Load History**: When loading a history item, the conversation context is preserved - subsequent queries include the loaded messages in the context
+
+**How it works:**
+- Each new message includes the last 6 messages from the current chat window
+- The context is formatted as a conversation history in the message
+- This allows the agent to understand references like "the above query" or "that result"
 
 **Example Conversation:**
 ```
@@ -264,7 +271,10 @@ User: "What are the top 10 projects by cost?"
 Agent: [Shows results with project IDs and costs]
 
 User: "Order them by TLA"
-Agent: [Remembers previous query and orders by TLA]
+Agent: [Remembers previous query and orders by TLA - context sent with message]
+
+User: "run the above query again"
+Agent: [Understands "above query" refers to previous query - context includes it]
 ```
 
 ### Agent Deployment
@@ -318,11 +328,13 @@ Stream query to agent (recommended).
 ```json
 {
   "agent_name": "bq_agent_mick",
-  "message": "What are the top 10 projects?",
+  "message": "What are the top 10 projects?\n\nUser: previous question\nAssistant: previous response",
   "user_id": "web_user",
-  "session_id": "session-123456"  // Optional, for context
+  "session_id": "session-123456"  // Optional, for tracking (not sent to Agent Engine)
 }
 ```
+
+**Note:** The `message` field includes conversation context (last 6 messages) formatted as a conversation history. The `session_id` is used for tracking but not sent to Agent Engine REST API.
 
 **Response:** Server-Sent Events (SSE) stream
 ```
@@ -432,10 +444,15 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment guides.
 **Symptoms:** Agent doesn't remember previous messages
 
 **Solutions:**
-1. Check backend logs for session_id usage
-2. Verify session_id is being passed from frontend
-3. Ensure same session_id is used for follow-up queries
-4. Check Agent Engine API endpoint includes session_id
+1. **Check conversation history is being sent**: The frontend includes last 6 messages with each query
+2. **Verify messages are in chat window**: Context is built from messages visible in the current chat
+3. **Check backend logs**: Look for the conversation context in the request payload
+4. **Load history properly**: When loading a history item, the messages become part of the conversation context
+
+**How context works:**
+- Frontend sends last 6 messages (3 exchanges) with each new query
+- Context is embedded in the message as a conversation history
+- Agent Engine processes the full conversation context
 
 ### Permission Errors
 

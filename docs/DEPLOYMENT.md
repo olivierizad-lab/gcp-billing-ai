@@ -1,4 +1,4 @@
-# Deployment Guide - ChatGCP
+# Deployment Guide - GCP Billing Agent
 
 ## Can I Deploy Frontend to Agent Engine?
 

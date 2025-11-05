@@ -151,7 +151,7 @@ Rebuild and redeploy frontend, or update the environment variable in Cloud Run.
 
 2. **You should be redirected** to Google login if not authenticated
 
-3. **After login**, you should see the ChatGCP interface
+3. **After login**, you should see the GCP Billing Agent interface
 
 4. **Check IAP headers** in backend:
    ```python

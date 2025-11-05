@@ -1,4 +1,4 @@
-# Security Guide - ChatGCP
+# Security Guide - GCP Billing Agent
 
 ## Current Security Status
 

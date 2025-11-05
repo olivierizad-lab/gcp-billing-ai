@@ -1,6 +1,56 @@
-# Deployment Scripts - IAP + Load Balancer
+# Documentation Index - GCP Billing Agent
 
-Complete deployment scripts for the Agent Engine Chat interface with IAP (Identity-Aware Proxy) and load balancer, based on the provisioner project pattern.
+This directory contains all project documentation for the GCP Billing Agent Gen AI solution.
+
+## 📚 Documentation Structure
+
+### Getting Started
+- **[START_HERE.md](./START_HERE.md)** - Entry point and overview (start here!)
+- **[GETTING_STARTED.md](./GETTING_STARTED.md)** - Detailed local development and deployment guide
+- **[QUICKSTART.md](./QUICKSTART.md)** - 5-minute local development quick start
+- **[QUICK_START.md](./QUICK_START.md)** - Quick deployment guide for Cloud Run
+
+### Comprehensive Guides
+- **[GEN_AI_SOLUTION.md](./GEN_AI_SOLUTION.md)** - Complete solution documentation (architecture, features, API, troubleshooting)
+
+### Deployment Guides
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - General deployment guide
+- **[DEPLOYMENT_SIMPLE.md](./DEPLOYMENT_SIMPLE.md)** - Simple IAP deployment (no DNS required)
+- **[DEPLOYMENT_BACKEND.md](./DEPLOYMENT_BACKEND.md)** - Backend-specific deployment
+- **[DEPLOYMENT_FRONTEND.md](./DEPLOYMENT_FRONTEND.md)** - Frontend-specific deployment
+- **[IAP_DEPLOYMENT.md](./IAP_DEPLOYMENT.md)** - IAP (Identity-Aware Proxy) deployment guide
+- **[README.md](./README.md)** - Deployment scripts documentation (IAP + Load Balancer)
+- **[README-SIMPLE.md](./README-SIMPLE.md)** - Simple IAP deployment documentation
+
+### Specialized Topics
+- **[TESTING_HISTORY.md](./TESTING_HISTORY.md)** - Testing the Firestore history feature
+- **[SECURITY.md](./SECURITY.md)** - Security considerations and best practices
+- **[DEPLOYMENT_FAQ.md](./DEPLOYMENT_FAQ.md)** - Common deployment questions and answers
+
+### Agent Documentation
+- **[agents/](./agents/)** - Agent-specific documentation
+  - `bq_agent_mick.md` - bq_agent_mick agent documentation
+  - `bq_agent_mick_deployment.md` - Deployment guide
+  - `bq_agent_mick_usage.md` - Usage guide
+  - `session_management.md` - Session management for Agent Engine
+
+---
+
+## 🚀 Quick Navigation
+
+**New to the project?** Start with [START_HERE.md](./START_HERE.md) or [GETTING_STARTED.md](./GETTING_STARTED.md)
+
+**Want to deploy?** Check [DEPLOYMENT_SIMPLE.md](./DEPLOYMENT_SIMPLE.md) for the easiest deployment option
+
+**Need comprehensive info?** See [GEN_AI_SOLUTION.md](./GEN_AI_SOLUTION.md)
+
+**Troubleshooting?** Check [GEN_AI_SOLUTION.md](./GEN_AI_SOLUTION.md) troubleshooting section or [DEPLOYMENT_FAQ.md](./DEPLOYMENT_FAQ.md)
+
+---
+
+## Deployment Scripts - IAP + Load Balancer
+
+Complete deployment scripts for the GCP Billing Agent interface with IAP (Identity-Aware Proxy) and load balancer, based on the provisioner project pattern.
 
 ## Architecture
 

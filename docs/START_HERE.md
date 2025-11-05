@@ -1,4 +1,4 @@
-# 🚀 ChatGCP - React Chat Interface for Agent Engine
+# 🚀 GCP Billing Agent - React Chat Interface for Agent Engine
 
 Welcome! This is your **ChatGPT-like web interface** for interacting with your deployed Vertex AI Agent Engine agents.
 
@@ -62,7 +62,7 @@ export PROJECT_ID="your-project-id"
 - ✅ **See streaming responses** - Watch responses appear in real-time
 - ✅ **Switch between agents** - Use the dropdown to change agents
 - ✅ **Clear conversation** - Start fresh anytime
-- ✅ **Modern UI** - Clean, ChatGPT-like interface
+- ✅ **Modern UI** - Clean, modern chat interface
 
 ## 📚 Documentation
 
