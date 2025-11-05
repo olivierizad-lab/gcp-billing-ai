@@ -115,6 +115,54 @@ python scripts/cleanup_old_deployments.py \
     --keep 1
 ```
 
+### Force Delete Deployments with Active Sessions
+
+Sometimes deployments can't be deleted because they have active sessions (even if there "shouldn't be anything" holding them). You can force delete these deployments:
+
+```bash
+# Force delete (removes child resources/sessions)
+make cleanup-deployments AGENT_NAME=bq_agent_mick KEEP=1 FORCE=1
+
+# Or with dry-run first to preview
+make cleanup-deployments AGENT_NAME=bq_agent_mick KEEP=1 FORCE=1 DRY_RUN=1
+
+# Using the script directly
+python scripts/cleanup_old_deployments.py \
+    --agent-name bq_agent_mick \
+    --keep 1 \
+    --force
+```
+
+**When to use `--force`:**
+- You see "Has active sessions" errors when trying to delete
+- You know there are no real active sessions (stuck/stale sessions)
+- You want to immediately clean up old deployments without waiting for sessions to expire
+
+**Note:** Force deletion will delete child resources (sessions) along with the deployment. This is safe if you're cleaning up old deployments.
+
+### Inspecting Deployments
+
+To see what might be holding onto a deployment:
+
+```bash
+# Inspect a specific deployment
+python scripts/inspect_deployment.py --engine-id <REASONING_ENGINE_ID>
+
+# Example
+python scripts/inspect_deployment.py --engine-id 6686143402645389312
+```
+
+This will show:
+- Deployment details (name, created time, age)
+- Active operations (if any)
+- Detailed error messages if deletion fails
+- Recommendations for troubleshooting
+
+**Use this when:**
+- A deployment can't be deleted and you want to understand why
+- You want to see deployment metadata (age, creation time, etc.)
+- You're troubleshooting deployment issues
+
 ### Cleanup Best Practices
 
 1. **During Development**: Keep 2-3 latest deployments (in case latest has issues)
@@ -183,6 +231,34 @@ Yes, old deployments remain functional. They just won't have your latest code ch
 
 Check your `.env` file or query scripts for the `REASONING_ENGINE_ID`. That's the one that's being used.
 
+### "Why can't I delete a deployment? It says 'Has active sessions'"
+
+Deployments can have active sessions that prevent deletion. This can happen even if you think there are no active sessions (stuck/stale sessions).
+
+**Options:**
+1. **Force delete** (recommended for old deployments):
+   ```bash
+   make cleanup-deployments AGENT_NAME=bq_agent_mick KEEP=1 FORCE=1
+   ```
+
+2. **Wait for sessions to expire** (typically 30-60 minutes of inactivity)
+
+3. **Delete via Console** (may have force-delete option)
+
+4. **Inspect the deployment** to understand what's holding it:
+   ```bash
+   python scripts/inspect_deployment.py --engine-id <ID>
+   ```
+
+### "What holds onto deployments?"
+
+Deployments can be held by:
+- **Active sessions** - Client connections that haven't expired yet
+- **Stuck/stale sessions** - Sessions that didn't properly close (can happen during development)
+- **Ongoing operations** - Long-running operations associated with the deployment
+
+Most commonly, it's sessions (active or stale). Use `--force` to delete deployments with sessions.
+
 ## Quick Reference
 
 ```bash
@@ -197,6 +273,12 @@ make cleanup-deployments AGENT_NAME=bq_agent_mick KEEP=1
 
 # Clean up (dry run)
 make cleanup-deployments AGENT_NAME=bq_agent_mick KEEP=1 DRY_RUN=1
+
+# Force delete (removes deployments with active sessions)
+make cleanup-deployments AGENT_NAME=bq_agent_mick KEEP=1 FORCE=1
+
+# Inspect a deployment
+python scripts/inspect_deployment.py --engine-id <ID>
 ```
 
 ## Related Documentation

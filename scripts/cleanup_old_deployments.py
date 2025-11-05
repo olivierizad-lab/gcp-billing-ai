@@ -12,12 +12,13 @@ import subprocess
 import json
 from datetime import datetime
 
-def delete_reasoning_engine(project_id, location, engine_id, dry_run=False):
+def delete_reasoning_engine(project_id, location, engine_id, dry_run=False, force=False):
     """Delete a reasoning engine by ID using REST API."""
     engine_name = f"projects/{project_id}/locations/{location}/reasoningEngines/{engine_id}"
     
     if dry_run:
-        print(f"  [DRY RUN] Would delete: {engine_id}")
+        force_msg = " (with force)" if force else ""
+        print(f"  [DRY RUN] Would delete: {engine_id}{force_msg}")
         return True
     
     try:
@@ -38,7 +39,12 @@ def delete_reasoning_engine(project_id, location, engine_id, dry_run=False):
             "Authorization": f"Bearer {credentials.token}",
         }
         
-        response = requests.delete(endpoint, headers=headers, timeout=60)
+        # Add force parameter if requested
+        params = {}
+        if force:
+            params['force'] = 'true'
+        
+        response = requests.delete(endpoint, headers=headers, params=params, timeout=60)
         
         if response.status_code in [200, 204]:
             print(f"  ✓ Deleted: {engine_id}")
@@ -53,11 +59,18 @@ def delete_reasoning_engine(project_id, location, engine_id, dry_run=False):
                 
                 # Check for child resources (sessions) error
                 if 'child resources' in error_msg.lower() or 'contains child resources' in error_msg.lower():
-                    print(f"  ⚠ Skipped {engine_id}: Has active sessions")
-                    print(f"    Note: Deployments with active sessions cannot be deleted.")
-                    print(f"    Sessions may expire automatically, or delete via Console:")
-                    print(f"    https://console.cloud.google.com/vertex-ai/agents/agent-engines?project={project_id}")
-                    return "skipped"
+                    if force:
+                        # Force was requested but still failed - this shouldn't happen
+                        print(f"  ✗ Failed to delete {engine_id} even with force=True")
+                        print(f"    {error_msg[:300]}")
+                        return False
+                    else:
+                        print(f"  ⚠ Skipped {engine_id}: Has active sessions")
+                        print(f"    Note: Deployments with active sessions cannot be deleted.")
+                        print(f"    Use --force to force delete (will delete child resources/sessions)")
+                        print(f"    Or delete via Console:")
+                        print(f"    https://console.cloud.google.com/vertex-ai/agents/agent-engines?project={project_id}")
+                        return "skipped"
                 else:
                     print(f"  ✗ Failed to delete {engine_id}: HTTP {response.status_code}")
                     print(f"    {error_msg[:300]}")
@@ -71,12 +84,14 @@ def delete_reasoning_engine(project_id, location, engine_id, dry_run=False):
         print(f"  ✗ Failed to delete {engine_id}: {e}")
         return False
 
-def cleanup_old_deployments(project_id, location, agent_name, keep=1, dry_run=False):
+def cleanup_old_deployments(project_id, location, agent_name, keep=1, dry_run=False, force=False):
     """Clean up old deployments, keeping only the latest N."""
     print(f"Cleaning up old deployments for: {agent_name}")
     print(f"Project: {project_id}, Location: {location}")
     print(f"Keeping: {keep} latest deployment(s)")
     print(f"Mode: {'DRY RUN' if dry_run else 'DELETE'}")
+    if force:
+        print(f"Force delete: ENABLED (will delete child resources/sessions)")
     print(f"{'='*80}")
     
     try:
@@ -146,7 +161,7 @@ def cleanup_old_deployments(project_id, location, agent_name, keep=1, dry_run=Fa
         failed_count = 0
         for engine in to_delete:
             engine_id = engine['name'].split('/')[-1]
-            result = delete_reasoning_engine(project_id, location, engine_id, dry_run)
+            result = delete_reasoning_engine(project_id, location, engine_id, dry_run, force)
             if result is True:
                 deleted_count += 1
             elif result == "skipped":
@@ -163,12 +178,11 @@ def cleanup_old_deployments(project_id, location, agent_name, keep=1, dry_run=Fa
             if skipped_count > 0:
                 print(f"⚠ Skipped {skipped_count} deployment(s) with active sessions")
                 print(f"   These deployments cannot be deleted while they have active sessions.")
-                print(f"   Sessions typically expire after 30-60 minutes of inactivity.")
                 print(f"   Options:")
-                print(f"   1. Wait and run cleanup again later")
-                print(f"   2. Delete manually via Console:")
+                print(f"   1. Run with --force to force delete (will delete child resources/sessions)")
+                print(f"   2. Wait 30-60 minutes for sessions to expire and run cleanup again")
+                print(f"   3. Delete manually via Console:")
                 print(f"      https://console.cloud.google.com/vertex-ai/agents/agent-engines?project={project_id}")
-                print(f"   3. Use --wait-and-retry to automatically retry after waiting")
             if failed_count > 0:
                 print(f"✗ Failed to delete {failed_count} deployment(s)")
             print(f"✓ Kept {len(to_keep)} latest deployment(s)")
@@ -188,14 +202,13 @@ def main():
         description="Clean up old Agent Engine deployments",
         epilog="""
 Note about sessions:
-  Deployments with active sessions cannot be deleted until sessions expire.
-  Vertex AI Reasoning Engines manage sessions internally and don't expose
-  a public API to terminate them directly.
+  Deployments with active sessions cannot be deleted until sessions expire,
+  unless you use --force which will delete child resources (sessions) as well.
   
   Options:
-    1. Wait 30-60 minutes for sessions to expire automatically
-    2. Delete manually via Google Cloud Console
-    3. Use --wait-and-retry to automatically retry after a delay
+    1. Use --force to force delete deployments with active sessions
+    2. Wait 30-60 minutes for sessions to expire automatically
+    3. Delete manually via Google Cloud Console
         """
     )
     parser.add_argument("--agent-name", required=True, help="Agent name to clean up (e.g., bq_agent_mick)")
@@ -203,6 +216,7 @@ Note about sessions:
     parser.add_argument("--location", default="us-central1", help="GCP location")
     parser.add_argument("--keep", type=int, default=1, help="Number of latest deployments to keep (default: 1)")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be deleted without actually deleting")
+    parser.add_argument("--force", action="store_true", help="Force delete deployments with active sessions (deletes child resources)")
     
     args = parser.parse_args()
     
@@ -226,7 +240,7 @@ Note about sessions:
         print("Error: --keep must be at least 1")
         sys.exit(1)
     
-    cleanup_old_deployments(project_id, args.location, args.agent_name, args.keep, args.dry_run)
+    cleanup_old_deployments(project_id, args.location, args.agent_name, args.keep, args.dry_run, args.force)
 
 if __name__ == "__main__":
     main()

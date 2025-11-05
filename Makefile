@@ -178,7 +178,7 @@ list-deployments: ## List all Agent Engine deployments
 		--location $(LOCATION) \
 		$(if $(AGENT_NAME),--filter-name $(AGENT_NAME),)
 
-cleanup-deployments: ## Clean up old Agent Engine deployments (use AGENT_NAME and KEEP variables)
+cleanup-deployments: ## Clean up old Agent Engine deployments (use AGENT_NAME and KEEP variables). Use FORCE=1 to force delete deployments with active sessions.
 	@if [ -z "$(PROJECT_ID)" ]; then \
 		PROJECT_ID=$$(gcloud config get-value project 2>/dev/null || echo ""); \
 		if [ -z "$$PROJECT_ID" ]; then \
@@ -197,7 +197,8 @@ cleanup-deployments: ## Clean up old Agent Engine deployments (use AGENT_NAME an
 		--project $(PROJECT_ID) \
 		--location $(LOCATION) \
 		--keep $$KEEP \
-		$(if $(DRY_RUN),--dry-run,)
+		$(if $(DRY_RUN),--dry-run,) \
+		$(if $(FORCE),--force,)
 
 deploy-cloud-run: check-prereqs ## Deploy agent as Cloud Run service (requires service.py)
 	@if [ -z "$(PROJECT_ID)" ]; then \
