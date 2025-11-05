@@ -253,7 +253,9 @@ def query_agent_stream_with_save(agent_name: str, message: str, user_id: str = "
         # Build API endpoint - include session_id if provided for conversation context
         base_url = f"https://{LOCATION}-aiplatform.googleapis.com/v1"
         
-        # Build payload
+        # Build payload - match the format used in interactive.py
+        # Note: Agent Engine REST API may not support session_id in request body
+        # Session management might be handled differently via the API
         payload = {
             "input": {
                 "message": message,
@@ -261,16 +263,17 @@ def query_agent_stream_with_save(agent_name: str, message: str, user_id: str = "
             }
         }
         
-        # Add session_id to endpoint if provided (enables conversation context)
-        # Agent Engine maintains conversation state per session_id
+        # Log the payload for debugging
+        print(f"DEBUG: Request payload: {json.dumps(payload, indent=2)}")
+        
+        # Agent Engine REST API endpoint - sessions are managed automatically or via request body
+        # Note: The REST API doesn't use sessions in the URL path like ADK directly
+        endpoint = f"{base_url}/projects/{PROJECT_ID}/locations/{LOCATION}/reasoningEngines/{reasoning_engine_id}:streamQuery"
+        
         if session_id:
-            # Format: .../reasoningEngines/{id}/sessions/{session_id}:streamQuery
-            endpoint = f"{base_url}/projects/{PROJECT_ID}/locations/{LOCATION}/reasoningEngines/{reasoning_engine_id}/sessions/{session_id}:streamQuery"
-            print(f"Using existing session {session_id} for conversation context")
+            print(f"Session ID provided: {session_id} (may be used for context in request body)")
         else:
-            # Without session_id, Agent Engine creates a new session for each query
-            endpoint = f"{base_url}/projects/{PROJECT_ID}/locations/{LOCATION}/reasoningEngines/{reasoning_engine_id}:streamQuery"
-            print("Creating new session (no session_id provided)")
+            print("No session_id provided - Agent Engine will create/manage sessions automatically")
         
         # Log the endpoint being called for debugging
         print(f"DEBUG: Calling Agent Engine endpoint:")
@@ -304,33 +307,69 @@ def query_agent_stream_with_save(agent_name: str, message: str, user_id: str = "
             
             # Parse streaming JSON response and collect text
             try:
+                print(f"DEBUG: Response status: {response.status_code}")
+                print(f"DEBUG: Response headers: {dict(response.headers)}")
+                print(f"DEBUG: Response content-type: {response.headers.get('content-type', 'N/A')}")
+                
                 line_count = 0
+                chunk_count = 0
+                
+                # Try different methods to read the stream
+                # Method 1: iter_lines (for newline-delimited JSON)
                 for line in response.iter_lines(decode_unicode=True):
+                    chunk_count += 1
                     if line:
                         line_count += 1
+                        print(f"DEBUG: Raw line {line_count}: {line[:200]}")
                         try:
                             data = json.loads(line)
                             
-                            # Log first few lines for debugging
-                            if line_count <= 3:
-                                print(f"DEBUG: Response line {line_count}: {json.dumps(data, indent=2)[:500]}")
+                            # Log first few lines for debugging (full structure)
+                            if line_count <= 5:
+                                print(f"DEBUG: Response line {line_count} full structure:")
+                                print(json.dumps(data, indent=2)[:1000])
+                                print("-" * 80)
                             
                             # Extract text from response - handle different response formats
+                            # Format 1: content.parts[].text
                             content = data.get("content", {})
                             if isinstance(content, dict):
                                 parts = content.get("parts", [])
-                                for part in parts:
+                                if parts:
+                                    print(f"DEBUG: Found {len(parts)} parts in content")
+                                for i, part in enumerate(parts):
                                     if isinstance(part, dict):
+                                        print(f"DEBUG: Part {i} keys: {list(part.keys())}")
                                         text = part.get("text")
                                         if text:
+                                            print(f"DEBUG: Found text in part {i}: {text[:100]}...")
                                             response_text += text
                                             # Yield as Server-Sent Events format
                                             yield f"data: {json.dumps({'text': text})}\n\n"
+                                        else:
+                                            print(f"DEBUG: Part {i} has no 'text' key, keys are: {list(part.keys())}")
                             
-                            # Also check for text directly in the response (some formats)
-                            if "text" in data and not response_text:
+                            # Format 2: Check for candidates (Gemini API format)
+                            candidates = data.get("candidates", [])
+                            if candidates:
+                                print(f"DEBUG: Found {len(candidates)} candidates")
+                                for i, candidate in enumerate(candidates):
+                                    candidate_content = candidate.get("content", {})
+                                    if isinstance(candidate_content, dict):
+                                        candidate_parts = candidate_content.get("parts", [])
+                                        for j, part in enumerate(candidate_parts):
+                                            if isinstance(part, dict):
+                                                text = part.get("text")
+                                                if text:
+                                                    print(f"DEBUG: Found text in candidate {i}, part {j}: {text[:100]}...")
+                                                    response_text += text
+                                                    yield f"data: {json.dumps({'text': text})}\n\n"
+                            
+                            # Format 3: Direct text field
+                            if "text" in data:
                                 text = data["text"]
                                 if text:
+                                    print(f"DEBUG: Found direct text field: {text[:100]}...")
                                     response_text += text
                                     yield f"data: {json.dumps({'text': text})}\n\n"
                                     
@@ -344,8 +383,44 @@ def query_agent_stream_with_save(agent_name: str, message: str, user_id: str = "
                             traceback.print_exc()
                             continue
                 
-                print(f"DEBUG: Processed {line_count} lines from Agent Engine response")
+                print(f"DEBUG: Processed {line_count} non-empty lines from {chunk_count} total chunks")
                 print(f"DEBUG: Total response text length: {len(response_text)}")
+                
+                # If no lines were found, try reading the raw response
+                if line_count == 0 and chunk_count == 0:
+                    print("DEBUG: No lines found in stream, trying raw response...")
+                    try:
+                        raw_content = response.text
+                        print(f"DEBUG: Raw response content length: {len(raw_content)}")
+                        print(f"DEBUG: Raw response (first 500 chars): {raw_content[:500]}")
+                        
+                        # Try to parse as JSON
+                        try:
+                            data = json.loads(raw_content)
+                            print(f"DEBUG: Parsed as single JSON object")
+                            print(f"DEBUG: JSON keys: {list(data.keys())}")
+                            
+                            # Extract text from the JSON
+                            content = data.get("content", {})
+                            if isinstance(content, dict):
+                                parts = content.get("parts", [])
+                                for part in parts:
+                                    if isinstance(part, dict):
+                                        text = part.get("text")
+                                        if text:
+                                            response_text += text
+                                            yield f"data: {json.dumps({'text': text})}\n\n"
+                        except json.JSONDecodeError:
+                            print("DEBUG: Response is not JSON, might be text or other format")
+                            if raw_content:
+                                response_text = raw_content
+                                yield f"data: {json.dumps({'text': raw_content})}\n\n"
+                    except Exception as raw_err:
+                        print(f"DEBUG: Error reading raw response: {raw_err}")
+                
+                if line_count > 0 and not response_text:
+                    print(f"WARNING: Received {line_count} lines but extracted no text content!")
+                    print(f"Check the DEBUG logs above to see the response structure")
             except Exception as stream_err:
                 print(f"Error during streaming: {stream_err}")
                 import traceback
