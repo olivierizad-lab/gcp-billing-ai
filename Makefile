@@ -1,4 +1,4 @@
-.PHONY: help deploy-agent-engine deploy-cloud-run deploy test-local setup check-prereqs clean lint format
+.PHONY: help deploy-agent-engine deploy-cloud-run deploy test-local setup check-prereqs clean lint format clean-all config info create-staging-bucket enable-apis test-adk-cli generate-service grant-bq-permissions
 
 # Default target
 .DEFAULT_GOAL := help
@@ -230,6 +230,14 @@ info: ## Show deployment information and instructions
 	@echo ""
 	@echo "View configuration:"
 	@echo "  $(COLOR_CYAN)make config$(COLOR_RESET)"
+
+       grant-bq-permissions: check-prereqs ## Grant BigQuery permissions to Agent Engine service accounts
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		echo "✗ Error: PROJECT_ID must be set"; \
+		exit 1; \
+	fi
+	@echo "Granting BigQuery permissions to Agent Engine..."
+	@$(AGENT_DIR)/grant_permissions.sh
 
 # Quick deployment alias
 deploy: deploy-agent-engine ## Alias for deploy-agent-engine (default deployment method)
