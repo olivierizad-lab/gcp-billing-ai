@@ -15,6 +15,7 @@ function App() {
   const [history, setHistory] = useState([])
   const [showHistory, setShowHistory] = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [sessionId, setSessionId] = useState(null) // Session ID for conversation context
   const messagesEndRef = useRef(null)
   const abortControllerRef = useRef(null)
 
@@ -76,6 +77,7 @@ function App() {
       }
     ]
     setMessages(historyMessages)
+    setSessionId(null) // Reset session when loading old history (new conversation)
     setShowHistory(false)
     // Scroll to bottom
     setTimeout(() => {
@@ -151,14 +153,30 @@ function App() {
         body: JSON.stringify({
           agent_name: selectedAgent,
           message: userMessage.content,
-          user_id: 'web_user'
+          user_id: 'web_user',
+          session_id: getSessionId() // Include session ID for conversation context
         }),
         signal: abortControllerRef.current.signal
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
-        throw new Error(errorData.detail || `HTTP ${response.status}`)
+        // Try to get error message from response
+        let errorMessage = `HTTP ${response.status}`
+        try {
+          const errorText = await response.text()
+          if (errorText) {
+            try {
+              const errorData = JSON.parse(errorText)
+              errorMessage = errorData.detail || errorData.error || errorText.substring(0, 200)
+            } catch {
+              errorMessage = errorText.substring(0, 200)
+            }
+          }
+        } catch {
+          // If we can't read the error, use the status code
+          errorMessage = `HTTP ${response.status}`
+        }
+        throw new Error(errorMessage)
       }
 
       // Add assistant message placeholder
@@ -185,6 +203,30 @@ function App() {
             try {
               const data = JSON.parse(line.slice(6))
               
+              // Handle error messages from backend
+              if (data.error) {
+                setError(`Query failed: ${data.error}`)
+                setMessages(prev => {
+                  const newMessages = [...prev]
+                  const lastMessage = newMessages[newMessages.length - 1]
+                  if (lastMessage.role === 'assistant') {
+                    lastMessage.content = `Error: ${data.error}`
+                  }
+                  return newMessages
+                })
+                break
+              }
+              
+              // Handle warning messages (non-fatal)
+              if (data.warning) {
+                console.warn('Warning from backend:', data.warning)
+              }
+              
+              // Handle save errors (non-fatal)
+              if (data.save_error) {
+                console.warn('Failed to save query to history:', data.save_error)
+              }
+              
               if (data.text) {
                 setMessages(prev => {
                   const newMessages = [...prev]
@@ -197,20 +239,21 @@ function App() {
               }
 
               if (data.done) {
-                // Always reload history after query completes
-                // (even if query_id wasn't sent, in case save happened)
-                setTimeout(() => {
-                  loadHistory()
-                }, 500) // Small delay to ensure Firestore write completes
+                // Only reload history if there was no error
+                if (!data.error) {
+                  setTimeout(() => {
+                    loadHistory()
+                  }, 500) // Small delay to ensure Firestore write completes
+                }
                 break
               }
-              
+            
               // Track query_id if received
               if (data.query_id) {
                 console.log('Query saved with ID:', data.query_id)
               }
             } catch (err) {
-              console.error('Error parsing SSE data:', err)
+              console.error('Error parsing SSE data:', err, 'Line:', line)
             }
           }
         }
@@ -234,11 +277,23 @@ function App() {
   const clearChat = () => {
     setMessages([])
     setError(null)
+    setSessionId(null) // Reset session when clearing chat
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
     setIsLoading(false)
+  }
+  
+  // Generate session ID if not exists
+  const getSessionId = () => {
+    if (!sessionId) {
+      // Generate a new session ID for this conversation
+      const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      setSessionId(newSessionId)
+      return newSessionId
+    }
+    return sessionId
   }
 
   const selectedAgentInfo = agents.find(a => a.name === selectedAgent)

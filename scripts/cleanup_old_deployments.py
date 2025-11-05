@@ -47,8 +47,8 @@ def delete_reasoning_engine(project_id, location, engine_id, dry_run=False, forc
         response = requests.delete(endpoint, headers=headers, params=params, timeout=60)
         
         if response.status_code in [200, 204]:
-        print(f"  ✓ Deleted: {engine_id}")
-        return True
+            print(f"  ✓ Deleted: {engine_id}")
+            return True
         else:
             # Try to parse error message for better user guidance
             error_msg = ""

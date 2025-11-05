@@ -90,6 +90,7 @@ class QueryRequest(BaseModel):
     message: str
     agent_name: str
     user_id: Optional[str] = "default_user"
+    session_id: Optional[str] = None  # Session ID for conversation context
 
 
 class QueryResponse(BaseModel):
@@ -215,114 +216,191 @@ def query_agent_stream(agent_name: str, message: str, user_id: str = "default_us
         raise HTTPException(status_code=500, detail=f"Request failed: {str(e)}")
 
 
-def query_agent_stream_with_save(agent_name: str, message: str, user_id: str = "default_user"):
+def query_agent_stream_with_save(agent_name: str, message: str, user_id: str = "default_user", session_id: Optional[str] = None):
     """
     Stream query to agent and save to Firestore after completion.
     
     Yields chunks of the response and saves the complete query/response after streaming.
+    
+    Args:
+        agent_name: Name of the agent
+        message: User's message
+        user_id: User ID
+        session_id: Optional session ID for conversation context (if None, Agent Engine creates new session)
     """
     response_text = ""
     
-    # Get agent configuration
-    if agent_name not in AGENT_CONFIGS:
-        raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
-    
-    agent_config = AGENT_CONFIGS[agent_name]
-    reasoning_engine_id = agent_config["reasoning_engine_id"]
-    
-    if not reasoning_engine_id:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Agent '{agent_name}' is not configured. Please set REASONING_ENGINE_ID in .env file."
-        )
-    
-    # Get credentials
     try:
-        credentials = get_credentials()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get credentials: {str(e)}")
-    
-    # Build API endpoint
-    base_url = f"https://{LOCATION}-aiplatform.googleapis.com/v1"
-    endpoint = f"{base_url}/projects/{PROJECT_ID}/locations/{LOCATION}/reasoningEngines/{reasoning_engine_id}:streamQuery"
-    
-    headers = {
-        "Authorization": f"Bearer {credentials.token}",
-        "Content-Type": "application/json",
-    }
-    
-    payload = {
-        "input": {
-            "message": message,
-            "user_id": user_id
+        # Get agent configuration
+        if agent_name not in AGENT_CONFIGS:
+            yield f"data: {json.dumps({'error': f'Agent \'{agent_name}\' not found', 'done': True})}\n\n"
+            return
+        
+        agent_config = AGENT_CONFIGS[agent_name]
+        reasoning_engine_id = agent_config["reasoning_engine_id"]
+        
+        if not reasoning_engine_id:
+            yield f"data: {json.dumps({'error': f'Agent \'{agent_name}\' is not configured. Please set REASONING_ENGINE_ID in .env file.', 'done': True})}\n\n"
+            return
+        
+        # Get credentials
+        try:
+            credentials = get_credentials()
+        except Exception as e:
+            yield f"data: {json.dumps({'error': f'Failed to get credentials: {str(e)}', 'done': True})}\n\n"
+            return
+        
+        # Build API endpoint - include session_id if provided for conversation context
+        base_url = f"https://{LOCATION}-aiplatform.googleapis.com/v1"
+        
+        # Build payload
+        payload = {
+            "input": {
+                "message": message,
+                "user_id": user_id
+            }
         }
-    }
-    
-    try:
+        
+        # Add session_id to endpoint if provided (enables conversation context)
+        # Agent Engine maintains conversation state per session_id
+        if session_id:
+            # Format: .../reasoningEngines/{id}/sessions/{session_id}:streamQuery
+            endpoint = f"{base_url}/projects/{PROJECT_ID}/locations/{LOCATION}/reasoningEngines/{reasoning_engine_id}/sessions/{session_id}:streamQuery"
+            print(f"Using existing session {session_id} for conversation context")
+        else:
+            # Without session_id, Agent Engine creates a new session for each query
+            endpoint = f"{base_url}/projects/{PROJECT_ID}/locations/{LOCATION}/reasoningEngines/{reasoning_engine_id}:streamQuery"
+            print("Creating new session (no session_id provided)")
+        
+        # Log the endpoint being called for debugging
+        print(f"DEBUG: Calling Agent Engine endpoint:")
+        print(f"  Project: {PROJECT_ID}")
+        print(f"  Location: {LOCATION}")
+        print(f"  Reasoning Engine ID: {reasoning_engine_id}")
+        print(f"  Endpoint: {endpoint}")
+        
+        headers = {
+            "Authorization": f"Bearer {credentials.token}",
+            "Content-Type": "application/json",
+        }
+        
         # Stream the response
-        response = requests.post(
-            endpoint,
-            headers=headers,
-            json=payload,
-            stream=True,
-            timeout=180
-        )
-        
-        if response.status_code != 200:
-            error_text = response.text[:500]
-            raise HTTPException(
-                status_code=response.status_code,
-                detail=f"Agent query failed: {error_text}"
+        try:
+            response = requests.post(
+                endpoint,
+                headers=headers,
+                json=payload,
+                stream=True,
+                timeout=180
             )
-        
-        # Parse streaming JSON response and collect text
-        for line in response.iter_lines(decode_unicode=True):
-            if line:
-                try:
-                    data = json.loads(line)
-                    # Extract text from response
-                    content = data.get("content", {})
-                    if isinstance(content, dict):
-                        parts = content.get("parts", [])
-                        for part in parts:
-                            if isinstance(part, dict):
-                                text = part.get("text")
+            
+            if response.status_code != 200:
+                error_text = response.text[:500]
+                print(f"ERROR: Agent Engine returned HTTP {response.status_code}")
+                print(f"Error response: {error_text}")
+                print(f"Endpoint used: {endpoint}")
+                yield f"data: {json.dumps({'error': f'Agent query failed (HTTP {response.status_code}): {error_text}', 'done': True})}\n\n"
+                return
+            
+            # Parse streaming JSON response and collect text
+            try:
+                line_count = 0
+                for line in response.iter_lines(decode_unicode=True):
+                    if line:
+                        line_count += 1
+                        try:
+                            data = json.loads(line)
+                            
+                            # Log first few lines for debugging
+                            if line_count <= 3:
+                                print(f"DEBUG: Response line {line_count}: {json.dumps(data, indent=2)[:500]}")
+                            
+                            # Extract text from response - handle different response formats
+                            content = data.get("content", {})
+                            if isinstance(content, dict):
+                                parts = content.get("parts", [])
+                                for part in parts:
+                                    if isinstance(part, dict):
+                                        text = part.get("text")
+                                        if text:
+                                            response_text += text
+                                            # Yield as Server-Sent Events format
+                                            yield f"data: {json.dumps({'text': text})}\n\n"
+                            
+                            # Also check for text directly in the response (some formats)
+                            if "text" in data and not response_text:
+                                text = data["text"]
                                 if text:
                                     response_text += text
-                                    # Yield as Server-Sent Events format
                                     yield f"data: {json.dumps({'text': text})}\n\n"
-                except json.JSONDecodeError:
-                    # Skip non-JSON lines
-                    pass
-        
-        # Save to Firestore after streaming completes
-        if response_text:
-            try:
-                print(f"Saving query to Firestore: user_id={user_id}, agent={agent_name}, message_length={len(message)}, response_length={len(response_text)}")
-                query_id = save_query(user_id, agent_name, message, response_text)
-                print(f"Successfully saved query with ID: {query_id}")
-                # Send query_id and completion marker
-                yield f"data: {json.dumps({'query_id': query_id, 'done': True})}\n\n"
-            except Exception as e:
-                # Log error but don't fail the request
+                                    
+                        except json.JSONDecodeError as json_err:
+                            # Skip non-JSON lines but log for debugging
+                            print(f"Warning: Skipping non-JSON line: {line[:100]}")
+                            continue
+                        except Exception as parse_err:
+                            print(f"Warning: Error parsing line: {parse_err}")
+                            import traceback
+                            traceback.print_exc()
+                            continue
+                
+                print(f"DEBUG: Processed {line_count} lines from Agent Engine response")
+                print(f"DEBUG: Total response text length: {len(response_text)}")
+            except Exception as stream_err:
+                print(f"Error during streaming: {stream_err}")
                 import traceback
-                error_details = traceback.format_exc()
-                print(f"ERROR: Failed to save query to Firestore: {e}")
-                print(f"Traceback: {error_details}")
-                yield f"data: {json.dumps({'done': True, 'save_error': str(e)})}\n\n"
-        else:
-            # No response text, just send done marker
-            print("Warning: No response text to save (empty response)")
-            yield f"data: {json.dumps({'done': True})}\n\n"
-        
-    except HTTPException:
-        raise
-    except requests.exceptions.Timeout:
-        raise HTTPException(status_code=504, detail="Request timeout")
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=500, detail=f"Request failed: {str(e)}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
+                traceback.print_exc()
+                # If we have partial response, continue to save it
+                if not response_text:
+                    yield f"data: {json.dumps({'error': f'Stream error: {str(stream_err)}', 'done': True})}\n\n"
+                    return
+            
+            # Save to Firestore after streaming completes
+            if response_text:
+                try:
+                    print(f"Saving query to Firestore: user_id={user_id}, agent={agent_name}, message_length={len(message)}, response_length={len(response_text)}")
+                    query_id = save_query(user_id, agent_name, message, response_text)
+                    print(f"Successfully saved query with ID: {query_id}")
+                    # Send query_id and completion marker
+                    yield f"data: {json.dumps({'query_id': query_id, 'done': True})}\n\n"
+                except Exception as save_err:
+                    # Log error but don't fail the request
+                    import traceback
+                    error_details = traceback.format_exc()
+                    print(f"ERROR: Failed to save query to Firestore: {save_err}")
+                    print(f"Traceback: {error_details}")
+                    yield f"data: {json.dumps({'done': True, 'save_error': str(save_err)})}\n\n"
+            else:
+                # No response text, just send done marker
+                print("Warning: No response text to save (empty response)")
+                yield f"data: {json.dumps({'done': True, 'warning': 'Empty response from agent'})}\n\n"
+                
+        except requests.exceptions.Timeout:
+            yield f"data: {json.dumps({'error': 'Request timeout (180s exceeded)', 'done': True})}\n\n"
+            return
+        except requests.exceptions.RequestException as req_err:
+            yield f"data: {json.dumps({'error': f'Request failed: {str(req_err)}', 'done': True})}\n\n"
+            return
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Unexpected error in query_agent_stream_with_save: {e}")
+            print(f"Traceback: {error_details}")
+            yield f"data: {json.dumps({'error': f'Query failed: {str(e)}', 'done': True})}\n\n"
+            return
+            
+    except Exception as outer_err:
+        # Catch any unexpected errors at the outer level
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Critical error in query_agent_stream_with_save (outer): {outer_err}")
+        print(f"Traceback: {error_details}")
+        try:
+            yield f"data: {json.dumps({'error': f'Critical error: {str(outer_err)}', 'done': True})}\n\n"
+        except:
+            # If we can't even yield, the stream is broken
+            print("Fatal: Cannot yield error message, stream is broken")
+            pass
 
 
 @app.get("/")
@@ -357,9 +435,16 @@ async def query_stream(request: QueryRequest):
     
     Returns a Server-Sent Events (SSE) stream of response chunks.
     Query is automatically saved to Firestore after completion.
+    
+    If session_id is provided, the agent will maintain conversation context.
     """
     return StreamingResponse(
-        query_agent_stream_with_save(request.agent_name, request.message, request.user_id),
+        query_agent_stream_with_save(
+            request.agent_name, 
+            request.message, 
+            request.user_id,
+            request.session_id
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -410,6 +495,30 @@ async def query(request: QueryRequest):
 async def health():
     """Health check endpoint."""
     return {"status": "healthy", "project_id": PROJECT_ID, "location": LOCATION}
+
+
+@app.get("/debug/agents")
+async def debug_agents():
+    """Debug endpoint to check agent configurations."""
+    debug_info = {
+        "project_id": PROJECT_ID,
+        "location": LOCATION,
+        "agents": {}
+    }
+    
+    for agent_name, config in AGENT_CONFIGS.items():
+        reasoning_engine_id = config["reasoning_engine_id"]
+        endpoint_base = f"https://{LOCATION}-aiplatform.googleapis.com/v1"
+        endpoint = f"{endpoint_base}/projects/{PROJECT_ID}/locations/{LOCATION}/reasoningEngines/{reasoning_engine_id}:streamQuery"
+        
+        debug_info["agents"][agent_name] = {
+            "display_name": config["display_name"],
+            "reasoning_engine_id": reasoning_engine_id,
+            "is_configured": bool(reasoning_engine_id),
+            "endpoint": endpoint if reasoning_engine_id else None
+        }
+    
+    return debug_info
 
 
 @app.get("/history")

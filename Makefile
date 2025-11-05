@@ -18,9 +18,11 @@ NO_CLEANUP ?=
 AGENT_DIRS = bq_agent_mick bq_agent
 
 # Python version - Agent Engine supports 3.9, 3.10, 3.11, 3.12, 3.13
-# Try to find a supported version, defaulting to python3.13 if available
+# Prefer virtual environment Python if it exists, otherwise try to find a supported version
 PYTHON ?= $(shell \
-	if command -v python3.13 >/dev/null 2>&1; then \
+	if [ -f .venv/bin/python ]; then \
+		echo .venv/bin/python; \
+	elif command -v python3.13 >/dev/null 2>&1; then \
 		echo python3.13; \
 	elif command -v python3.12 >/dev/null 2>&1; then \
 		echo python3.12; \
