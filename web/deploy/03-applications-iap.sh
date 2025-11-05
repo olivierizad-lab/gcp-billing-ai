@@ -62,8 +62,32 @@ fi
 echo -e "${GREEN}✅ Frontend UI built successfully${NC}"
 echo ""
 
-echo -e "${BLUE}3. Deploying API Service with IAP...${NC}"
+echo -e "${BLUE}3. Getting Reasoning Engine ID...${NC}"
+# Try to get reasoning engine ID from bq_agent_mick/.env or prompt user
+REASONING_ENGINE_ID=""
+if [ -f "$(dirname "$0")/../../bq_agent_mick/.env" ]; then
+    REASONING_ENGINE_ID=$(grep "REASONING_ENGINE_ID" "$(dirname "$0")/../../bq_agent_mick/.env" | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
+fi
+
+if [ -z "$REASONING_ENGINE_ID" ]; then
+    echo -e "${YELLOW}⚠️  REASONING_ENGINE_ID not found in bq_agent_mick/.env${NC}"
+    echo -e "${YELLOW}   Please enter the Reasoning Engine ID for bq_agent_mick:${NC}"
+    read -p "Reasoning Engine ID: " REASONING_ENGINE_ID
+fi
+
+if [ -z "$REASONING_ENGINE_ID" ]; then
+    echo -e "${RED}❌ REASONING_ENGINE_ID is required${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Using Reasoning Engine ID: $REASONING_ENGINE_ID${NC}"
+echo ""
+
+echo -e "${BLUE}4. Deploying API Service with IAP...${NC}"
 cd "$(dirname "$0")/../backend"
+
+# Get UI service URL for CORS (will be set after UI deployment, but prepare the variable)
+# We'll update it after UI is deployed
 gcloud run deploy "$API_SERVICE" \
     --image="gcr.io/$PROJECT_ID/$API_SERVICE:latest" \
     --region="$REGION" \
@@ -74,12 +98,19 @@ gcloud run deploy "$API_SERVICE" \
     --cpu=1 \
     --timeout=300 \
     --no-allow-unauthenticated \
+    --set-env-vars="BQ_AGENT_MICK_REASONING_ENGINE_ID=$REASONING_ENGINE_ID,BQ_PROJECT=$PROJECT_ID,LOCATION=$REGION" \
     --project="$PROJECT_ID"
 
 echo -e "${GREEN}✅ API service deployed with authentication required${NC}"
 echo ""
 
-echo -e "${BLUE}4. Enabling IAP on API Service...${NC}"
+# Get API URL for CORS configuration
+API_URL=$(gcloud run services describe "$API_SERVICE" \
+    --region="$REGION" \
+    --project="$PROJECT_ID" \
+    --format="value(status.url)")
+
+echo -e "${BLUE}5. Enabling IAP on API Service...${NC}"
 # Enable IAP on the Cloud Run service
 gcloud run services add-iam-policy-binding "$API_SERVICE" \
     --region="$REGION" \
@@ -90,8 +121,34 @@ gcloud run services add-iam-policy-binding "$API_SERVICE" \
 echo -e "${GREEN}✅ IAP enabled on API service${NC}"
 echo ""
 
-echo -e "${BLUE}5. Deploying UI Service with IAP...${NC}"
+# Update API service with CORS settings (will be updated after UI is deployed)
+echo -e "${BLUE}6. Deploying UI Service with IAP...${NC}"
 cd "$(dirname "$0")/../frontend"
+
+# Build frontend with API URL
+echo -e "${YELLOW}Building frontend with API URL: $API_URL${NC}"
+export VITE_API_URL="$API_URL"
+
+# Check if cloudbuild.yaml exists, otherwise build manually
+if [ -f "cloudbuild.yaml" ]; then
+    gcloud builds submit --config=cloudbuild.yaml \
+        --substitutions=_API_URL="$API_URL" \
+        . --project="$PROJECT_ID"
+else
+    echo -e "${YELLOW}⚠️  Cloud Build config not found, building manually...${NC}"
+    # Build frontend manually
+    npm install
+    npm run build
+    # Create a simple Dockerfile for Cloud Build
+    echo "FROM nginx:alpine" > Dockerfile.temp
+    echo "COPY dist /usr/share/nginx/html" >> Dockerfile.temp
+    echo "COPY nginx.conf /etc/nginx/conf.d/default.conf" >> Dockerfile.temp
+    echo "EXPOSE 8080" >> Dockerfile.temp
+    echo "CMD [\"nginx\", \"-g\", \"daemon off;\"]" >> Dockerfile.temp
+    gcloud builds submit --tag "gcr.io/$PROJECT_ID/$UI_SERVICE:latest" . --project="$PROJECT_ID"
+    rm Dockerfile.temp
+fi
+
 gcloud run deploy "$UI_SERVICE" \
     --image="gcr.io/$PROJECT_ID/$UI_SERVICE:latest" \
     --region="$REGION" \
@@ -107,7 +164,23 @@ gcloud run deploy "$UI_SERVICE" \
 echo -e "${GREEN}✅ UI service deployed with authentication required${NC}"
 echo ""
 
-echo -e "${BLUE}6. Enabling IAP on UI Service...${NC}"
+# Get UI URL for CORS update
+UI_URL=$(gcloud run services describe "$UI_SERVICE" \
+    --region="$REGION" \
+    --project="$PROJECT_ID" \
+    --format="value(status.url)")
+
+echo -e "${BLUE}7. Updating API CORS settings...${NC}"
+# Update API service with UI URL in CORS
+gcloud run services update "$API_SERVICE" \
+    --region="$REGION" \
+    --update-env-vars="CORS_ALLOWED_ORIGINS=$UI_URL" \
+    --project="$PROJECT_ID"
+
+echo -e "${GREEN}✅ CORS updated with UI URL${NC}"
+echo ""
+
+echo -e "${BLUE}8. Enabling IAP on UI Service...${NC}"
 # Enable IAP on the Cloud Run service
 gcloud run services add-iam-policy-binding "$UI_SERVICE" \
     --region="$REGION" \

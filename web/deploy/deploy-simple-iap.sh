@@ -31,11 +31,26 @@ echo "  Project ID: $PROJECT_ID"
 echo "  Region: $REGION"
 echo ""
 
-read -p "Continue with deployment? (y/N): " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${YELLOW}Deployment cancelled.${NC}"
-    exit 0
+# Check for -y or --yes flag to skip confirmation
+SKIP_CONFIRM=false
+for arg in "$@"; do
+    case $arg in
+        -y|--yes)
+            SKIP_CONFIRM=true
+            shift
+            ;;
+        *)
+            ;;
+    esac
+done
+
+if [ "$SKIP_CONFIRM" = false ]; then
+    read -p "Continue with deployment? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}Deployment cancelled.${NC}"
+        exit 0
+    fi
 fi
 
 echo ""

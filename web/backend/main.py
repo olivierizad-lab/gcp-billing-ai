@@ -20,16 +20,34 @@ from google.auth.transport.requests import Request
 import requests
 from history import save_query, get_query_history, delete_query, delete_all_history
 
-# Load environment variables
+# Load environment variables (optional - for local development only)
+# In Cloud Run/Docker, all configuration comes from environment variables
+# This .env file loading is optional and only used for local development
 project_root = Path(__file__).parent.parent.parent
-load_dotenv(project_root / ".env", override=False)
+env_file = project_root / ".env"
+if env_file.exists():
+    load_dotenv(env_file, override=False)
+# If .env doesn't exist (Cloud Run), that's fine - use environment variables
 
 app = FastAPI(title="Agent Engine Chat API", version="1.0.0")
 
 # CORS configuration - allow React frontend
+# For Cloud Run, allow origins from environment variable or default to localhost
+allowed_origins_env = os.getenv("CORS_ALLOWED_ORIGINS", "")
+if allowed_origins_env:
+    allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",")]
+else:
+    # Default to localhost for local development
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173"
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,21 +58,26 @@ PROJECT_ID = os.getenv("BQ_PROJECT") or os.getenv("GCP_PROJECT_ID", "qwiklabs-as
 LOCATION = os.getenv("LOCATION", "us-central1")
 
 # Load agent-specific .env files and extract REASONING_ENGINE_IDs
+# For Cloud Run deployment, use environment variables instead of .env files
 def load_agent_configs():
-    """Load agent configurations from .env files."""
+    """Load agent configurations from .env files or environment variables."""
     configs = {}
     
-    # bq_agent_mick - load from agent-specific .env, then check root env
-    agent_mick_env = project_root / "bq_agent_mick" / ".env"
-    mick_id = ""
-    if agent_mick_env.exists():
-        # Temporarily load to get REASONING_ENGINE_ID
-        from dotenv import dotenv_values
-        mick_env_vars = dotenv_values(agent_mick_env)
-        mick_id = mick_env_vars.get("REASONING_ENGINE_ID", "")
+    # bq_agent_mick - try environment variable first (Cloud Run), then .env file (local dev)
+    mick_id = os.getenv("BQ_AGENT_MICK_REASONING_ENGINE_ID", "")
     
-    # Check root env for override (BQ_AGENT_MICK_REASONING_ENGINE_ID)
-    mick_id = os.getenv("BQ_AGENT_MICK_REASONING_ENGINE_ID") or mick_id
+    # Fallback to .env file if environment variable not set (for local development)
+    # In Docker/Cloud Run, these files won't exist, so skip this
+    if not mick_id:
+        try:
+            agent_mick_env = project_root / "bq_agent_mick" / ".env"
+            if agent_mick_env.exists():
+                from dotenv import dotenv_values
+                mick_env_vars = dotenv_values(agent_mick_env)
+                mick_id = mick_env_vars.get("REASONING_ENGINE_ID", "")
+        except (OSError, AttributeError):
+            # Path doesn't exist (e.g., in Docker), skip .env file loading
+            pass
     
     configs["bq_agent_mick"] = {
         "name": "bq_agent_mick",
@@ -63,16 +86,21 @@ def load_agent_configs():
         "reasoning_engine_id": mick_id,
     }
     
-    # bq_agent - load from agent-specific .env, then check root env
-    agent_env = project_root / "bq_agent" / ".env"
-    agent_id = ""
-    if agent_env.exists():
-        from dotenv import dotenv_values
-        agent_env_vars = dotenv_values(agent_env)
-        agent_id = agent_env_vars.get("REASONING_ENGINE_ID", "")
+    # bq_agent - try environment variable first (Cloud Run), then .env file (local dev)
+    agent_id = os.getenv("BQ_AGENT_REASONING_ENGINE_ID", "")
     
-    # Check root env for override (BQ_AGENT_REASONING_ENGINE_ID)
-    agent_id = os.getenv("BQ_AGENT_REASONING_ENGINE_ID") or agent_id
+    # Fallback to .env file if environment variable not set (for local development)
+    # In Docker/Cloud Run, these files won't exist, so skip this
+    if not agent_id:
+        try:
+            agent_env = project_root / "bq_agent" / ".env"
+            if agent_env.exists():
+                from dotenv import dotenv_values
+                agent_env_vars = dotenv_values(agent_env)
+                agent_id = agent_env_vars.get("REASONING_ENGINE_ID", "")
+        except (OSError, AttributeError):
+            # Path doesn't exist (e.g., in Docker), skip .env file loading
+            pass
     
     configs["bq_agent"] = {
         "name": "bq_agent",
@@ -146,7 +174,7 @@ def query_agent_stream(agent_name: str, message: str, user_id: str = "default_us
     if not reasoning_engine_id:
         raise HTTPException(
             status_code=400,
-            detail=f"Agent '{agent_name}' is not configured. Please set REASONING_ENGINE_ID in .env file."
+            detail=f"Agent '{agent_name}' is not configured. Please set BQ_AGENT_MICK_REASONING_ENGINE_ID or BQ_AGENT_REASONING_ENGINE_ID environment variable."
         )
     
     # Get credentials
@@ -233,14 +261,16 @@ def query_agent_stream_with_save(agent_name: str, message: str, user_id: str = "
     try:
         # Get agent configuration
         if agent_name not in AGENT_CONFIGS:
-            yield f"data: {json.dumps({'error': f'Agent \'{agent_name}\' not found', 'done': True})}\n\n"
+            error_msg = f'Agent \'{agent_name}\' not found'
+            yield f"data: {json.dumps({'error': error_msg, 'done': True})}\n\n"
             return
         
         agent_config = AGENT_CONFIGS[agent_name]
         reasoning_engine_id = agent_config["reasoning_engine_id"]
         
         if not reasoning_engine_id:
-            yield f"data: {json.dumps({'error': f'Agent \'{agent_name}\' is not configured. Please set REASONING_ENGINE_ID in .env file.', 'done': True})}\n\n"
+            error_msg = f'Agent \'{agent_name}\' is not configured. Please set BQ_AGENT_MICK_REASONING_ENGINE_ID or BQ_AGENT_REASONING_ENGINE_ID environment variable.'
+            yield f"data: {json.dumps({'error': error_msg, 'done': True})}\n\n"
             return
         
         # Get credentials

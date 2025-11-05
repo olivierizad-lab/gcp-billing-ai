@@ -1,4 +1,4 @@
-.PHONY: help deploy-agent-engine deploy-bq-agent-mick deploy-bq-agent deploy-all-agents deploy-cloud-run deploy test-local setup check-prereqs clean lint format clean-all config info create-staging-bucket enable-apis test-adk-cli generate-service grant-bq-permissions list-deployments cleanup-deployments
+.PHONY: help deploy-agent-engine deploy-bq-agent-mick deploy-bq-agent deploy-all-agents deploy-cloud-run deploy-web-cloud-run deploy test-local setup check-prereqs clean lint format clean-all config info create-staging-bucket enable-apis test-adk-cli generate-service grant-bq-permissions list-deployments cleanup-deployments
 
 # Default target
 .DEFAULT_GOAL := help
@@ -69,6 +69,7 @@ help: ## Show this help message
 	@echo "  make deploy-all-agents"
 	@echo "  make deploy-agent-engine AGENT_DIR=bq_agent"
 	@echo "  make deploy-cloud-run LOCATION=us-west1"
+	@echo "  make deploy-web-cloud-run PROJECT_ID=my-project"
 	@echo "  make test-local"
 
 check-prereqs: ## Check if required tools and dependencies are installed
@@ -224,6 +225,29 @@ deploy-cloud-run: check-prereqs ## Deploy agent as Cloud Run service (requires s
 		--allow-unauthenticated \
 		--set-env-vars BQ_PROJECT=$(PROJECT_ID),BQ_DATASET=$(shell grep BQ_DATASET $(AGENT_DIR)/.env 2>/dev/null | cut -d'=' -f2 || echo ""),BQ_LOCATION=$(shell grep BQ_LOCATION $(AGENT_DIR)/.env 2>/dev/null | cut -d'=' -f2 || echo "US")
 
+deploy-web-cloud-run: check-prereqs ## Deploy web application (backend + frontend) to Cloud Run with IAP. Use SKIP_CONFIRM=1 to skip confirmation prompt.
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		PROJECT_ID=$$(gcloud config get-value project 2>/dev/null || echo ""); \
+		if [ -z "$$PROJECT_ID" ]; then \
+			echo "✗ Error: PROJECT_ID must be set"; \
+			echo "  Set it with: export PROJECT_ID=your-project"; \
+			echo "  Or override: make deploy-web-cloud-run PROJECT_ID=your-project"; \
+			exit 1; \
+		fi; \
+	fi
+	@echo "Deploying web application to Cloud Run with IAP..."
+	@echo "Project: $(PROJECT_ID)"
+	@echo "Region: $(LOCATION)"
+	@echo ""
+	@cd web/deploy && \
+		export PROJECT_ID="$(PROJECT_ID)" && \
+		export REGION="$(LOCATION)" && \
+		if [ "$(SKIP_CONFIRM)" = "1" ] || [ "$(SKIP_CONFIRM)" = "true" ]; then \
+			./deploy-simple-iap.sh -y; \
+		else \
+			./deploy-simple-iap.sh; \
+		fi
+
 generate-service: ## Generate Cloud Run service.py file from template
 	@echo "Generating $(AGENT_DIR)/service.py..."
 	@$(PYTHON) $(AGENT_DIR)/deploy_vertex_api.py --output-config > /dev/null 2>&1 || true
@@ -312,11 +336,14 @@ info: ## Show deployment information and instructions
 	@echo "  1. Vertex AI Agent Engine (recommended for ADK agents)"
 	@echo "     Run: $(COLOR_CYAN)make deploy-agent-engine$(COLOR_RESET)"
 	@echo ""
-	@echo "  2. Cloud Run (alternative deployment option)"
+	@echo "  2. Web Application to Cloud Run with IAP (backend + frontend)"
+	@echo "     Run: $(COLOR_CYAN)make deploy-web-cloud-run$(COLOR_RESET)"
+	@echo ""
+	@echo "  3. Cloud Run (alternative deployment option for agents)"
 	@echo "     Run: $(COLOR_CYAN)make deploy-cloud-run$(COLOR_RESET)"
 	@echo "     (Requires service.py - run 'make generate-service' first)"
 	@echo ""
-	@echo "  3. Local testing"
+	@echo "  4. Local testing"
 	@echo "     Run: $(COLOR_CYAN)make test-local$(COLOR_RESET)"
 	@echo ""
 	@echo "View detailed deployment docs:"
