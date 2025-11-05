@@ -29,19 +29,54 @@ make deploy-all-agents
 
 ### Query Agents
 
-After deployment, query the agents:
+**Option 1: Web Interface (ChatGCP)** 🎨
+
+Start the React chat interface for a ChatGPT-like experience:
+```bash
+# Start backend (Terminal 1)
+cd web/backend
+pip install -r requirements.txt
+python main.py
+
+# Start frontend (Terminal 2)
+cd web/frontend
+npm install
+npm run dev
+```
+
+Then open http://localhost:3000 in your browser!
+
+See [docs/START_HERE.md](./docs/START_HERE.md) for quick setup.
+
+**Option 2: Command Line**
+
 ```bash
 # For bq_agent_mick
 python -m bq_agent_mick.query_agent "What are the total costs by top 10 services?"
 
-# For bq_agent (when query script is available)
+# For bq_agent
 python -m bq_agent.query_agent "What are the total costs by top 10 services?"
+
+# Interactive mode
+python -m bq_agent_mick.interactive
 ```
 
 ## Available Agents
 
 - **`bq_agent_mick`** - Alternative BigQuery agent implementation with async patterns and environment variable configuration
 - **`bq_agent`** - Production-ready BigQuery agent with explicit tool configuration and write blocking
+
+## Web Interface
+
+🎨 **ChatGCP - React Chat Interface**
+
+A modern ChatGPT-like web interface for interacting with your deployed agents. Features:
+- Real-time streaming responses
+- Multi-agent support
+- Clean, modern UI
+- Easy agent switching
+
+👉 **[Get Started with ChatGCP](./web/START_HERE.md)** - Quick 3-step setup guide
 
 ## Documentation
 

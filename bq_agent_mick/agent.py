@@ -16,12 +16,12 @@ LOCATION   = os.environ.get("BQ_LOCATION", "US")
 tool_config = BigQueryToolConfig(write_mode=WriteMode.BLOCKED)
 
 try:
-    credentials, _ = google.auth.default()
+credentials, _ = google.auth.default()
     # Use explicit credentials if available (for local dev)
-    bq_tools = BigQueryToolset(
+bq_tools = BigQueryToolset(
         credentials_config=BigQueryCredentialsConfig(credentials=credentials),
         bigquery_tool_config=tool_config
-    )
+)
 except Exception as cred_error:
     # In Agent Engine, credentials are handled automatically via ADC
     # Fall back to default toolset (uses implicit ADC) but still block writes
@@ -137,7 +137,7 @@ def _build_root_agent_sync():
     else:
         # No running loop - try asyncio.run, fall back to direct if needed
         try:
-            return asyncio.run(_build_root_agent())
+        return asyncio.run(_build_root_agent())
         except Exception:
             # If asyncio.run fails, use direct creation
             return _build_root_agent_direct()
@@ -146,7 +146,7 @@ def _build_root_agent_sync():
 # Use sync wrapper to ensure it works in all contexts
 # Wrap in try-except to provide better error messages
 try:
-    root_agent = _build_root_agent_sync()
+root_agent = _build_root_agent_sync()
 except Exception as e:
     print(f"Error creating root_agent: {e}")
     import traceback

@@ -1,0 +1,433 @@
+import React, { useState, useEffect, useRef } from 'react'
+import { Send, Bot, User, Loader2, AlertCircle, History, Trash2, X } from 'lucide-react'
+import './App.css'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const USER_ID = 'web_user' // In production, use authenticated user ID
+
+function App() {
+  const [agents, setAgents] = useState([])
+  const [selectedAgent, setSelectedAgent] = useState(null)
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [history, setHistory] = useState([])
+  const [showHistory, setShowHistory] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const messagesEndRef = useRef(null)
+  const abortControllerRef = useRef(null)
+
+  // Load agents and history on mount
+  useEffect(() => {
+    loadAgents()
+    loadHistory()
+  }, [])
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const loadAgents = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/agents`)
+      if (!response.ok) throw new Error('Failed to load agents')
+      const data = await response.json()
+      setAgents(data)
+      
+      // Auto-select first available agent
+      const available = data.find(a => a.is_available)
+      if (available) {
+        setSelectedAgent(available.name)
+      }
+    } catch (err) {
+      setError(`Failed to load agents: ${err.message}`)
+    }
+  }
+
+  const loadHistory = async () => {
+    setIsLoadingHistory(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/history?user_id=${USER_ID}&limit=50`)
+      if (!response.ok) throw new Error('Failed to load history')
+      const data = await response.json()
+      setHistory(data)
+    } catch (err) {
+      console.error('Failed to load history:', err)
+      // Don't show error for history loading failures
+    } finally {
+      setIsLoadingHistory(false)
+    }
+  }
+
+  const loadHistoryAsMessages = (historyItem) => {
+    // Convert history item to messages format
+    const historyMessages = [
+      {
+        role: 'user',
+        content: historyItem.message,
+        timestamp: new Date(historyItem.timestamp)
+      },
+      {
+        role: 'assistant',
+        content: historyItem.response,
+        timestamp: new Date(historyItem.timestamp)
+      }
+    ]
+    setMessages(historyMessages)
+    setShowHistory(false)
+    // Scroll to bottom
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 100)
+  }
+
+  const deleteHistoryItem = async (queryId, e) => {
+    e.stopPropagation() // Prevent loading the history item when clicking delete
+    
+    if (!confirm('Delete this query from history?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/history/${queryId}?user_id=${USER_ID}`, {
+        method: 'DELETE'
+      })
+      if (!response.ok) throw new Error('Failed to delete query')
+      
+      // Remove from local state
+      setHistory(prev => prev.filter(item => item.id !== queryId))
+      
+      // If this was the current conversation, clear it
+      // (This is a simple check - in production you might want to track query_id)
+    } catch (err) {
+      setError(`Failed to delete query: ${err.message}`)
+    }
+  }
+
+  const deleteAllHistory = async () => {
+    if (!confirm('Delete all query history? This cannot be undone.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/history?user_id=${USER_ID}`, {
+        method: 'DELETE'
+      })
+      if (!response.ok) throw new Error('Failed to delete history')
+      
+      setHistory([])
+      setMessages([])
+    } catch (err) {
+      setError(`Failed to delete history: ${err.message}`)
+    }
+  }
+
+  const sendMessage = async (e) => {
+    e.preventDefault()
+    if (!input.trim() || !selectedAgent || isLoading) return
+
+    const userMessage = {
+      role: 'user',
+      content: input.trim(),
+      timestamp: new Date()
+    }
+
+    setMessages(prev => [...prev, userMessage])
+    setInput('')
+    setIsLoading(true)
+    setError(null)
+
+    // Create abort controller for this request
+    abortControllerRef.current = new AbortController()
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/query/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          agent_name: selectedAgent,
+          message: userMessage.content,
+          user_id: 'web_user'
+        }),
+        signal: abortControllerRef.current.signal
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
+        throw new Error(errorData.detail || `HTTP ${response.status}`)
+      }
+
+      // Add assistant message placeholder
+      const assistantMessage = {
+        role: 'assistant',
+        content: '',
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, assistantMessage])
+
+      // Read stream
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              
+              if (data.text) {
+                setMessages(prev => {
+                  const newMessages = [...prev]
+                  const lastMessage = newMessages[newMessages.length - 1]
+                  if (lastMessage.role === 'assistant') {
+                    lastMessage.content += data.text
+                  }
+                  return newMessages
+                })
+              }
+
+              if (data.done) {
+                // Always reload history after query completes
+                // (even if query_id wasn't sent, in case save happened)
+                setTimeout(() => {
+                  loadHistory()
+                }, 500) // Small delay to ensure Firestore write completes
+                break
+              }
+              
+              // Track query_id if received
+              if (data.query_id) {
+                console.log('Query saved with ID:', data.query_id)
+              }
+            } catch (err) {
+              console.error('Error parsing SSE data:', err)
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        // Request was cancelled, remove the assistant message
+        setMessages(prev => prev.slice(0, -1))
+        return
+      }
+      
+      setError(`Error: ${err.message}`)
+      // Remove assistant message on error
+      setMessages(prev => prev.slice(0, -1))
+    } finally {
+      setIsLoading(false)
+      abortControllerRef.current = null
+    }
+  }
+
+  const clearChat = () => {
+    setMessages([])
+    setError(null)
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setIsLoading(false)
+  }
+
+  const selectedAgentInfo = agents.find(a => a.name === selectedAgent)
+
+  return (
+    <div className="app">
+      {/* Header */}
+      <header className="header">
+        <div className="header-content">
+          <div className="header-left">
+            <Bot className="header-icon" />
+            <h1>GCP Billing Agent</h1>
+            <span className="header-subtitle">Agent Engine Chat</span>
+          </div>
+          <div className="header-right">
+            <select
+              className="agent-selector"
+              value={selectedAgent || ''}
+              onChange={(e) => {
+                setSelectedAgent(e.target.value)
+                clearChat()
+              }}
+              disabled={isLoading}
+            >
+              <option value="">Select an agent...</option>
+              {agents.map(agent => (
+                <option key={agent.name} value={agent.name} disabled={!agent.is_available}>
+                  {agent.display_name} {!agent.is_available && '(Not configured)'}
+                </option>
+              ))}
+            </select>
+            <button 
+              className="history-button" 
+              onClick={() => setShowHistory(!showHistory)}
+              title="View query history"
+            >
+              <History size={20} />
+            </button>
+            {messages.length > 0 && (
+              <button className="clear-button" onClick={clearChat} disabled={isLoading}>
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="error-banner">
+          <AlertCircle size={16} />
+          <span>{error}</span>
+          <button onClick={() => setError(null)}>×</button>
+        </div>
+      )}
+
+      {/* History Sidebar */}
+      {showHistory && (
+        <div className="history-sidebar">
+          <div className="history-header">
+            <h3>Query History</h3>
+            <div className="history-actions">
+              {history.length > 0 && (
+                <button 
+                  className="delete-all-button" 
+                  onClick={deleteAllHistory}
+                  title="Delete all history"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+              <button 
+                className="close-history-button" 
+                onClick={() => setShowHistory(false)}
+                title="Close history"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+          <div className="history-content">
+            {isLoadingHistory ? (
+              <div className="history-loading">
+                <Loader2 size={20} className="spinner" />
+                <span>Loading history...</span>
+              </div>
+            ) : history.length === 0 ? (
+              <div className="history-empty">
+                <p>No query history yet.</p>
+                <p className="history-empty-subtitle">Your queries will appear here after you send them.</p>
+              </div>
+            ) : (
+              <div className="history-list">
+                {history.map((item) => (
+                  <div 
+                    key={item.id} 
+                    className="history-item"
+                    onClick={() => loadHistoryAsMessages(item)}
+                  >
+                    <div className="history-item-header">
+                      <span className="history-agent">{item.agent_name}</span>
+                      <button
+                        className="history-delete-button"
+                        onClick={(e) => deleteHistoryItem(item.id, e)}
+                        title="Delete this query"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    <div className="history-message">{item.message}</div>
+                    <div className="history-timestamp">
+                      {new Date(item.timestamp).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Messages Area */}
+      <div className={`messages-container ${showHistory ? 'with-history' : ''}`}>
+        {messages.length === 0 ? (
+          <div className="empty-state">
+            <Bot size={48} className="empty-icon" />
+            <h2>Welcome to GCP Billing Agent</h2>
+            <p>Select an agent and start chatting!</p>
+            {selectedAgentInfo && (
+              <p className="agent-description">{selectedAgentInfo.description}</p>
+            )}
+          </div>
+        ) : (
+          <div className="messages">
+            {messages.map((message, index) => (
+              <div key={index} className={`message message-${message.role}`}>
+                <div className="message-avatar">
+                  {message.role === 'user' ? <User size={20} /> : <Bot size={20} />}
+                </div>
+                <div className="message-content">
+                  <div className="message-text">
+                    {message.content || (message.role === 'assistant' && isLoading ? (
+                      <Loader2 size={16} className="spinner" />
+                    ) : '')}
+                  </div>
+                  <div className="message-timestamp">
+                    {message.timestamp.toLocaleTimeString()}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
+              <div className="message message-assistant">
+                <div className="message-avatar">
+                  <Bot size={20} />
+                </div>
+                <div className="message-content">
+                  <Loader2 size={16} className="spinner" />
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
+      </div>
+
+      {/* Input Area */}
+      <div className="input-container">
+        <form onSubmit={sendMessage} className="input-form">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={selectedAgent ? `Message ${selectedAgentInfo?.display_name || selectedAgent}...` : "Select an agent first..."}
+            disabled={!selectedAgent || isLoading}
+            className="input-field"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || !selectedAgent || isLoading}
+            className="send-button"
+          >
+            {isLoading ? <Loader2 size={20} className="spinner" /> : <Send size={20} />}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+export default App
+

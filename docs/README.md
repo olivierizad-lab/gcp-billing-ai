@@ -1,190 +1,245 @@
-# GCP Billing AI - Complete Documentation
+# Deployment Scripts - IAP + Load Balancer
 
-This directory contains comprehensive documentation for all components of the GCP Billing AI project.
+Complete deployment scripts for the Agent Engine Chat interface with IAP (Identity-Aware Proxy) and load balancer, based on the provisioner project pattern.
 
-## 📚 Documentation Index
+## Architecture
 
-### Agent Implementations
+```
+Internet
+   ↓
+Load Balancer (HTTPS + IAP)
+   ↓
+├─→ /api/* → Backend Service → API NEG → Cloud Run API
+└─→ /* → Frontend Service → UI NEG → Cloud Run UI
+```
 
-- **[bq_agent_mick](./agents/bq_agent_mick.md)** - Alternative BigQuery agent implementation
-  - Async/await patterns
-  - Environment variable configuration
-  - Explicit credential handling
-  - Agent Engine deployment ready
+## Prerequisites
 
-- **[bq_agent](./agents/bq_agent.md)** - Production-ready BigQuery agent
-  - Synchronous agent creation
-  - Explicit tool configuration
-  - Write mode blocking for security
-  - Hardcoded table references
+1. **GCP Project** with billing enabled
+2. **gcloud CLI** installed and authenticated
+3. **Domain** (for SSL certificate)
+4. **Docker** (for building images)
 
-- **[agent](./agents/agent.md)** - Simple test agent
-  - Basic arithmetic operations
-  - Custom tool demonstration
-  - Learning example
+## Configuration
 
-- **[asl_agent](./agents/asl_agent.md)** - Mock time tool example
-  - Structured tool returns
-  - Type hints demonstration
-  - Mock data patterns
-
-### Deployment Guides
-
-- **[bq_agent_mick Deployment](./agents/bq_agent_mick_deployment.md)** - Complete deployment guide for bq_agent_mick
-  - Agent Engine deployment
-  - Cloud Run deployment
-  - Configuration options
-
-- **[bq_agent_mick Usage](./agents/bq_agent_mick_usage.md)** - Usage guide for deployed agents
-  - Querying deployed agents
-  - API examples
-  - Troubleshooting
-
-### Testing
-
-- **[Test Documentation](./tests/tests.md)** - Testing strategies and examples
-  - Unit testing
-  - Integration testing
-  - Agent validation
-
-## 🚀 Quick Reference
-
-### Deployment Commands
+Update these variables in the scripts or export them:
 
 ```bash
-# Deploy individual agents
-make deploy-bq-agent-mick
-make deploy-bq-agent
-
-# Deploy all agents
-make deploy-all-agents
-
-# Deploy specific agent with custom settings
-make deploy-agent-engine AGENT_DIR=bq_agent_mick AGENT_NAME=custom_name
+export PROJECT_ID="your-project-id"
+export REGION="us-central1"
+export DOMAIN="agent-engine.yourdomain.com"
 ```
 
-### Project Structure
+Or edit the scripts directly (they have defaults).
 
-```
-gcp-billing-ai/
-├── agent/              # Simple test agent
-├── asl_agent/          # Mock time tool example
-├── bq_agent/           # Production-ready BigQuery agent
-├── bq_agent_mick/      # Alternative BigQuery agent
-├── scripts/            # Shared deployment scripts
-├── docs/               # Documentation (this folder)
-├── tests/              # Test files
-└── Makefile           # Build automation
-```
+## Quick Start
 
-## 🔧 Common Tasks
-
-### Setting Up Development Environment
+### Option 1: Deploy Everything at Once
 
 ```bash
-# 1. Clone the repository
-git clone <repo-url>
-cd gcp-billing-ai
-
-# 2. Set up Python virtual environment
-make setup
-
-# 3. Activate virtual environment
-source .venv/bin/activate
-
-# 4. Set GCP project
-export PROJECT_ID=your-project-id
+cd web/deploy
+export PROJECT_ID="your-project-id"
+export DOMAIN="agent-engine.yourdomain.com"
+./deploy-all.sh
 ```
 
-### Deploying to Vertex AI Agent Engine
+### Option 2: Deploy Step by Step
 
 ```bash
-# Check prerequisites
-make check-prereqs
+cd web/deploy
 
-# Deploy an agent
-make deploy-bq-agent-mick
+# 1. Infrastructure (VPC, SSL, IP, Service Accounts)
+export PROJECT_ID="your-project-id"
+export DOMAIN="agent-engine.yourdomain.com"
+./01-infrastructure.sh
 
-# Update REASONING_ENGINE_ID after deployment
-# Edit bq_agent_mick/.env or query script
+# 2. IAM Permissions
+./02-iam-permissions.sh
+
+# 3. Deploy Applications (Cloud Run)
+export REGION="us-central1"
+./03-applications.sh
+
+# 4. Load Balancer + IAP
+./04-load-balancer.sh
 ```
 
-### Querying Deployed Agents
+## What Gets Created
+
+### Infrastructure (01-infrastructure.sh)
+- ✅ VPC Network
+- ✅ Subnet
+- ✅ VPC Connector
+- ✅ Service Accounts (API and UI)
+- ✅ Global IP Address
+- ✅ SSL Certificate
+
+### IAM Permissions (02-iam-permissions.sh)
+- ✅ API Service Account permissions (BigQuery, Vertex AI, Logging)
+- ✅ Frontend Service Account permissions
+- ✅ Cloud Build permissions
+
+### Applications (03-applications.sh)
+- ✅ Backend API Cloud Run service
+- ✅ Frontend UI Cloud Run service
+- ✅ Both configured for load balancer ingress only
+- ✅ Both configured with no public access (IAP required)
+
+### Load Balancer (04-load-balancer.sh)
+- ✅ Network Endpoint Groups (NEGs)
+- ✅ Backend Services
+- ✅ URL Map with API routing (/api/* → backend)
+- ✅ HTTPS Proxy
+- ✅ Forwarding Rule
+- ✅ IAP enabled on both backend services
+
+## Post-Deployment Steps
+
+### 1. Configure DNS
+
+Point your domain to the load balancer IP:
 
 ```bash
-# Using the query module
-python -m bq_agent_mick.query_agent "What are the total costs by top 10 services?"
+# Get the load balancer IP
+gcloud compute addresses describe agent-engine-lb-ip \
+  --global \
+  --project=YOUR_PROJECT_ID \
+  --format="value(address)"
 
-# Or use the test script
-python bq_agent_mick/test_agent.py "Your question here"
+# Configure DNS A record to point to this IP
 ```
 
-## 📖 Key Concepts
+### 2. Grant IAP Access
 
-### Agent Development Kit (ADK)
+Grant IAP access to users or groups:
 
-The Google ADK provides:
-- **Agents**: LLM-powered agents with capabilities and instructions
-- **Tools**: Functions agents can call (BigQuery toolsets, custom tools)
-- **Sessions**: Conversation state management
-- **Runners**: Execution engine with async event streaming
-- **Security**: Write mode blocking for production safety
+```bash
+# Grant access to a specific user
+gcloud iap web add-iam-policy-binding \
+  --resource-type=backend-services \
+  --service=agent-engine-api-backend \
+  --member='user:user@example.com' \
+  --role='roles/iap.httpsResourceAccessor' \
+  --project=YOUR_PROJECT_ID
 
-### BigQuery Integration
+# Grant access to all authenticated users
+gcloud iap web add-iam-policy-binding \
+  --resource-type=backend-services \
+  --service=agent-engine-api-backend \
+  --member='allAuthenticatedUsers' \
+  --role='roles/iap.httpsResourceAccessor' \
+  --project=YOUR_PROJECT_ID
 
-Both agents use:
-- `BigQueryToolset` - ADK-provided tools for BigQuery
-- `WriteMode.BLOCKED` - Security configuration
-- Application Default Credentials (ADC) - Authentication
+# Repeat for UI backend
+gcloud iap web add-iam-policy-binding \
+  --resource-type=backend-services \
+  --service=agent-engine-ui-backend \
+  --member='allAuthenticatedUsers' \
+  --role='roles/iap.httpsResourceAccessor' \
+  --project=YOUR_PROJECT_ID
+```
 
-### Deployment Options
+### 3. Update Frontend API URL
 
-1. **Vertex AI Agent Engine** (Recommended)
-   - Fully managed
-   - Automatic scaling
-   - Built-in monitoring
+Update the frontend to use the load balancer domain:
 
-2. **Cloud Run**
-   - Containerized deployment
-   - Custom service configuration
-   - Manual scaling
+```bash
+# In web/frontend/.env.production or update vite.config.js
+VITE_API_URL=https://agent-engine.yourdomain.com/api
+```
 
-## 🔍 Troubleshooting
+Then rebuild and redeploy the frontend.
 
-### Common Issues
+## Security Features
 
-1. **Deployment fails with "App name mismatch"**
-   - Ensure `agent_engine_app.py` exists and has explicit `app_name`
-   - See agent-specific deployment docs
+✅ **IAP Authentication** - Users authenticate with Google accounts  
+✅ **No Public Access** - Services only accessible through load balancer  
+✅ **HTTPS Only** - SSL/TLS encryption  
+✅ **VPC Connector** - Private networking  
+✅ **Service Account Isolation** - Separate service accounts for API and UI  
 
-2. **Agent not returning query results**
-   - Check BigQuery permissions
-   - Verify `REASONING_ENGINE_ID` is correct
-   - Check Cloud Logs for errors
+## Troubleshooting
 
-3. **Module not found errors**
-   - Ensure virtual environment is activated
-   - Run `make setup` to install dependencies
+### IAP Not Working
 
-For more detailed troubleshooting, see the agent-specific documentation.
+1. Check IAP is enabled:
+   ```bash
+   gcloud compute backend-services describe agent-engine-api-backend \
+     --global \
+     --project=YOUR_PROJECT_ID \
+     --format="value(iap.enabled)"
+   ```
 
-## 📝 Additional Resources
+2. Check IAP access policy:
+   ```bash
+   gcloud iap web get-iam-policy \
+     --resource-type=backend-services \
+     --service=agent-engine-api-backend \
+     --project=YOUR_PROJECT_ID
+   ```
 
-- [Google ADK Documentation](https://cloud.google.com/vertex-ai/generative-ai/docs/agent/overview)
-- [Vertex AI Agent Engine](https://cloud.google.com/vertex-ai/generative-ai/docs/agent-engine/overview)
-- [BigQuery Documentation](https://cloud.google.com/bigquery/docs)
+### Services Not Accessible
 
-## 🤝 Contributing
+1. Check Cloud Run ingress:
+   ```bash
+   gcloud run services describe agent-engine-api \
+     --region=us-central1 \
+     --project=YOUR_PROJECT_ID \
+     --format="value(spec.template.metadata.annotations.'run.googleapis.com/ingress')"
+   ```
+   Should be: `internal-and-cloud-load-balancing`
 
-When adding new agents or features:
-1. Create agent directory with `agent.py` and `__init__.py`
-2. Add `agent_engine_app.py` for Agent Engine deployment
-3. Add documentation to `docs/agents/`
-4. Update `Makefile` with deployment targets
-5. Test deployment and querying
+2. Check NEGs:
+   ```bash
+   gcloud compute network-endpoint-groups list \
+     --region=us-central1 \
+     --project=YOUR_PROJECT_ID
+   ```
 
-## 📄 License
+### SSL Certificate Issues
 
-Copyright 2025 Google LLC
+1. Check certificate status:
+   ```bash
+   gcloud compute ssl-certificates describe agent-engine-ssl-cert \
+     --global \
+     --project=YOUR_PROJECT_ID
+   ```
 
-Licensed under the Apache License, Version 2.0
+2. Verify DNS is configured correctly
+
+## Idempotency
+
+All scripts are **idempotent** - they can be run multiple times safely. They check if resources exist before creating them.
+
+## Cleanup
+
+To remove everything (in reverse order):
+
+```bash
+# 4. Delete load balancer
+gcloud compute forwarding-rules delete agent-engine-forwarding-rule --global --project=YOUR_PROJECT_ID
+gcloud compute target-https-proxies delete agent-engine-proxy --global --project=YOUR_PROJECT_ID
+gcloud compute url-maps delete agent-engine-url-map --global --project=YOUR_PROJECT_ID
+gcloud compute backend-services delete agent-engine-api-backend --global --project=YOUR_PROJECT_ID
+gcloud compute backend-services delete agent-engine-ui-backend --global --project=YOUR_PROJECT_ID
+gcloud compute network-endpoint-groups delete agent-engine-api-neg --region=us-central1 --project=YOUR_PROJECT_ID
+gcloud compute network-endpoint-groups delete agent-engine-ui-neg --region=us-central1 --project=YOUR_PROJECT_ID
+
+# 3. Delete Cloud Run services
+gcloud run services delete agent-engine-api --region=us-central1 --project=YOUR_PROJECT_ID
+gcloud run services delete agent-engine-ui --region=us-central1 --project=YOUR_PROJECT_ID
+
+# 1. Delete infrastructure
+gcloud compute addresses delete agent-engine-lb-ip --global --project=YOUR_PROJECT_ID
+gcloud compute ssl-certificates delete agent-engine-ssl-cert --global --project=YOUR_PROJECT_ID
+gcloud vpc-access connectors delete agent-engine-vpc-connector --region=us-central1 --project=YOUR_PROJECT_ID
+gcloud compute networks subnets delete agent-engine-subnet --region=us-central1 --project=YOUR_PROJECT_ID
+gcloud compute networks delete agent-engine-vpc --project=YOUR_PROJECT_ID
+```
+
+## References
+
+Based on the provisioner project deployment pattern:
+- `provisioner/deploy/01-infrastructure.sh`
+- `provisioner/deploy/04-load-balancer.sh`
+
