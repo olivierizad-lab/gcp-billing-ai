@@ -77,7 +77,8 @@ function App() {
       }
     ]
     setMessages(historyMessages)
-    setSessionId(null) // Reset session when loading old history (new conversation)
+    // Keep sessionId - this allows the agent to continue the conversation
+    // The agent will have context from the loaded messages
     setShowHistory(false)
     // Scroll to bottom
     setTimeout(() => {
@@ -145,6 +146,19 @@ function App() {
     abortControllerRef.current = new AbortController()
 
     try {
+      // Build conversation context from previous messages
+      // Include the last few messages to give the agent context
+      const conversationContext = messages.slice(-6) // Last 6 messages (3 exchanges)
+      const contextMessages = conversationContext.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }))
+      
+      // Combine context with the new message
+      const messageWithContext = contextMessages.length > 0
+        ? `${contextMessages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')}\n\nUser: ${userMessage.content}`
+        : userMessage.content
+
       const response = await fetch(`${API_BASE_URL}/query/stream`, {
         method: 'POST',
         headers: {
@@ -152,7 +166,7 @@ function App() {
         },
         body: JSON.stringify({
           agent_name: selectedAgent,
-          message: userMessage.content,
+          message: messageWithContext,
           user_id: 'web_user',
           session_id: getSessionId() // Include session ID for conversation context
         }),
