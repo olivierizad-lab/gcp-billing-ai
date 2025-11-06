@@ -1,6 +1,6 @@
-# 🚀 GCP Billing Agent - React Chat Interface for Agent Engine
+# 🚀 GCP Billing Agent - Web Interface for Agent Engine
 
-Welcome! This is your **ChatGPT-like web interface** for interacting with your deployed Vertex AI Agent Engine agents.
+Welcome! This is the **web interface** for interacting with your deployed Vertex AI Agent Engine agents.
 
 ## 📁 What's Here
 

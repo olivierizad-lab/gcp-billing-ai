@@ -29,9 +29,9 @@ make deploy-all-agents
 
 ### Query Agents
 
-**Option 1: Web Interface (ChatGCP)** 🎨
+**Option 1: Web Interface** 🎨
 
-Start the React chat interface for a ChatGPT-like experience:
+Start the React web interface for interacting with your agents:
 ```bash
 # Start backend (Terminal 1)
 cd web/backend
@@ -68,29 +68,29 @@ python -m bq_agent_mick.interactive
 
 ## Web Interface
 
-🎨 **ChatGCP - React Chat Interface**
+🎨 **GCP Billing Agent Web Interface**
 
-A modern ChatGPT-like web interface for interacting with your deployed agents. Features:
+A modern web interface for interacting with your deployed Vertex AI Agent Engine agents. Features:
 - Real-time streaming responses
 - Multi-agent support
 - Clean, modern UI
 - Easy agent switching
+- Firestore authentication
+- Query history management
 
-👉 **[Get Started with ChatGCP](./web/START_HERE.md)** - Quick 3-step setup guide
+👉 **[Get Started with the Web Interface](./docs/START_HERE.md)** - Quick setup guide
 
 ## Documentation
 
 📚 **Full documentation is available in the [`docs/`](./docs/) folder:**
 
-- **[Main Documentation](./docs/README.md)** - Project overview and getting started guide
+- **[Architecture](./docs/architecture.md)** - Complete system architecture with Mermaid diagrams
+- **[Getting Started](./docs/START_HERE.md)** - Quick start guide
+- **[Deployment Guide](./docs/AUTOMATED_DEPLOYMENT.md)** - Automated deployment instructions
+- **[Authentication](./docs/AUTHENTICATION_SETUP.md)** - Firestore authentication setup
 - **[Agent Documentation](./docs/agents/)**:
   - [bq_agent_mick](./docs/agents/bq_agent_mick.md) - Alternative implementation details
   - [bq_agent](./docs/agents/bq_agent.md) - Production-ready agent details
-  - [agent](./docs/agents/agent.md) - Simple test agent
-  - [asl_agent](./docs/agents/asl_agent.md) - Mock time tool example
-- **[Deployment Guides](./docs/agents/)**:
-  - [bq_agent_mick Deployment](./docs/agents/bq_agent_mick_deployment.md)
-  - [bq_agent_mick Usage](./docs/agents/bq_agent_mick_usage.md)
 - **[Testing](./docs/tests/)**:
   - [Test Documentation](./docs/tests/tests.md)
 
