@@ -1,4 +1,4 @@
-.PHONY: help deploy-agent-engine deploy-bq-agent-mick deploy-bq-agent deploy-all-agents deploy-cloud-run deploy-web-cloud-run deploy-all-automated security-harden configure-auth verify-deployment deploy test-local setup check-prereqs clean lint format clean-all config info create-staging-bucket enable-apis test-adk-cli generate-service grant-bq-permissions list-deployments cleanup-deployments
+.PHONY: help deploy-agent-engine deploy-bq-agent-mick deploy-bq-agent deploy-all-agents deploy-cloud-run deploy-web deploy-web-simple deploy-web-automated security-harden configure-auth verify-deployment deploy test-local setup check-prereqs clean lint format clean-all config info create-staging-bucket enable-apis test-adk-cli generate-service grant-bq-permissions list-deployments cleanup-deployments
 
 # Default target
 .DEFAULT_GOAL := help
@@ -69,8 +69,8 @@ help: ## Show this help message
 	@echo "  make deploy-all-agents"
 	@echo "  make deploy-agent-engine AGENT_DIR=bq_agent"
 	@echo "  make deploy-cloud-run LOCATION=us-west1"
-	@echo "  make deploy-web-cloud-run PROJECT_ID=my-project"
-	@echo "  make deploy-all-automated PROJECT_ID=my-project ACCESS_CONTROL_TYPE=domain ACCESS_CONTROL_VALUE=asl.apps-eval.com"
+	@echo "  make deploy-web-simple PROJECT_ID=my-project"
+	@echo "  make deploy-web-automated PROJECT_ID=my-project ACCESS_CONTROL_TYPE=domain ACCESS_CONTROL_VALUE=asl.apps-eval.com"
 	@echo "  make security-harden PROJECT_ID=my-project ACCESS_CONTROL_TYPE=domain ACCESS_CONTROL_VALUE=asl.apps-eval.com"
 	@echo "  make configure-auth PROJECT_ID=my-project"
 	@echo "  make verify-deployment PROJECT_ID=my-project"
@@ -229,7 +229,7 @@ deploy-cloud-run: check-prereqs ## Deploy agent as Cloud Run service (requires s
 		--allow-unauthenticated \
 		--set-env-vars BQ_PROJECT=$(PROJECT_ID),BQ_DATASET=$(shell grep BQ_DATASET $(AGENT_DIR)/.env 2>/dev/null | cut -d'=' -f2 || echo ""),BQ_LOCATION=$(shell grep BQ_LOCATION $(AGENT_DIR)/.env 2>/dev/null | cut -d'=' -f2 || echo "US")
 
-deploy-web-cloud-run: check-prereqs ## Deploy web application (backend + frontend) to Cloud Run with IAP. Use SKIP_CONFIRM=1 to skip confirmation prompt.
+deploy-web-simple: check-prereqs ## Deploy web application (backend + frontend) to Cloud Run with IAP. Use SKIP_CONFIRM=1 to skip confirmation prompt.
 	@if [ -z "$(PROJECT_ID)" ]; then \
 		PROJECT_ID=$$(gcloud config get-value project 2>/dev/null || echo ""); \
 		if [ -z "$$PROJECT_ID" ]; then \
@@ -252,7 +252,12 @@ deploy-web-cloud-run: check-prereqs ## Deploy web application (backend + fronten
 			./deploy-simple-iap.sh; \
 		fi
 
-deploy-all-automated: check-prereqs ## Fully automated deployment: infrastructure, IAM, security, apps. Use ACCESS_CONTROL_TYPE=domain ACCESS_CONTROL_VALUE=asl.apps-eval.com
+deploy-web: ## Show help for web deployments
+	@echo "$(COLOR_BOLD)Web Deployment Options:$(COLOR_RESET)"
+	@echo "  $(COLOR_CYAN)make deploy-web-simple$(COLOR_RESET)    - Deploy to Cloud Run with IAP (no load balancer)"
+	@echo "  $(COLOR_CYAN)make deploy-web-automated$(COLOR_RESET) - Fully automated deployment with load balancer and custom domain"
+
+deploy-web-automated: check-prereqs ## Fully automated deployment: infrastructure, IAM, security, apps. Use ACCESS_CONTROL_TYPE=domain ACCESS_CONTROL_VALUE=asl.apps-eval.com
 	@if [ -z "$(PROJECT_ID)" ]; then \
 		echo "✗ Error: PROJECT_ID must be set"; \
 		echo "  Set it with: export PROJECT_ID=your-project"; \
@@ -408,8 +413,8 @@ info: ## Show deployment information and instructions
 	@echo "  1. Vertex AI Agent Engine (recommended for ADK agents)"
 	@echo "     Run: $(COLOR_CYAN)make deploy-agent-engine$(COLOR_RESET)"
 	@echo ""
-	@echo "  2. Web Application to Cloud Run with IAP (backend + frontend)"
-	@echo "     Run: $(COLOR_CYAN)make deploy-web-cloud-run$(COLOR_RESET)"
+	@echo "  2. Web Application Deployment"
+	@echo "     Run: $(COLOR_CYAN)make deploy-web$(COLOR_RESET) to see options (simple or automated)"
 	@echo ""
 	@echo "  3. Cloud Run (alternative deployment option for agents)"
 	@echo "     Run: $(COLOR_CYAN)make deploy-cloud-run$(COLOR_RESET)"
