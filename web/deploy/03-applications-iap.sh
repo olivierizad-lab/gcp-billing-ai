@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Application Deployment Script with Native Cloud Run IAP (Part 3 of 4)
-# This script builds and deploys Cloud Run services with IAP enabled directly
-# No DNS or load balancer required!
+# Application Deployment Script with Custom Firestore Authentication
+# This script builds and deploys Cloud Run services with custom auth using Firestore
+# No DNS, load balancer, or Firebase Authentication required!
 
 set -e  # Exit on any error
 
@@ -21,8 +21,8 @@ FRONTEND_SERVICE_ACCOUNT="agent-engine-ui-sa"
 API_SERVICE="agent-engine-api"
 UI_SERVICE="agent-engine-ui"
 
-echo -e "${BLUE}🚀 Application Deployment with Native IAP (Part 3/4)${NC}"
-echo -e "${BLUE}====================================================${NC}"
+echo -e "${BLUE}🚀 Application Deployment with Firestore Authentication${NC}"
+echo -e "${BLUE}=====================================================${NC}"
 echo ""
 echo -e "${YELLOW}📋 Configuration:${NC}"
 echo "  Project ID: $PROJECT_ID"
@@ -30,8 +30,11 @@ echo "  Region: $REGION"
 echo "  API Service Account: $API_SERVICE_ACCOUNT"
 echo "  Frontend Service Account: $FRONTEND_SERVICE_ACCOUNT"
 echo ""
-echo -e "${YELLOW}ℹ️  This deployment uses Cloud Run's native IAP support${NC}"
-echo -e "${YELLOW}   No DNS or load balancer required!${NC}"
+echo -e "${GREEN}  ✅ Using Firestore for user authentication${NC}"
+echo -e "${GREEN}  ✅ No Firebase Authentication config needed${NC}"
+echo ""
+echo -e "${YELLOW}ℹ️  This deployment uses custom authentication with Firestore${NC}"
+echo -e "${YELLOW}   No DNS, load balancer, or Firebase Auth required!${NC}"
 echo ""
 
 echo -e "${BLUE}1. Building Backend API...${NC}"
@@ -83,11 +86,22 @@ fi
 echo -e "${GREEN}✅ Using Reasoning Engine ID: $REASONING_ENGINE_ID${NC}"
 echo ""
 
-echo -e "${BLUE}4. Deploying API Service with IAP...${NC}"
+echo -e "${BLUE}4. Deploying API Service...${NC}"
 cd "$(dirname "$0")/../backend"
 
 # Get UI service URL for CORS (will be set after UI deployment, but prepare the variable)
 # We'll update it after UI is deployed
+# Prepare backend environment variables
+BACKEND_ENV_VARS="BQ_AGENT_MICK_REASONING_ENGINE_ID=$REASONING_ENGINE_ID,BQ_PROJECT=$PROJECT_ID,LOCATION=$REGION"
+
+# First, try to clear VPC connector if service exists (ignore errors)
+echo -e "${YELLOW}Clearing VPC connector from existing service (if any)...${NC}"
+gcloud run services update "$API_SERVICE" \
+    --region="$REGION" \
+    --clear-vpc-connector \
+    --project="$PROJECT_ID" 2>/dev/null || echo -e "${YELLOW}  Service may not exist yet or VPC already cleared${NC}"
+
+# Now deploy
 gcloud run deploy "$API_SERVICE" \
     --image="gcr.io/$PROJECT_ID/$API_SERVICE:latest" \
     --region="$REGION" \
@@ -97,8 +111,8 @@ gcloud run deploy "$API_SERVICE" \
     --memory=512Mi \
     --cpu=1 \
     --timeout=300 \
-    --no-allow-unauthenticated \
-    --set-env-vars="BQ_AGENT_MICK_REASONING_ENGINE_ID=$REASONING_ENGINE_ID,BQ_PROJECT=$PROJECT_ID,LOCATION=$REGION" \
+    --allow-unauthenticated \
+    --set-env-vars="$BACKEND_ENV_VARS" \
     --project="$PROJECT_ID"
 
 echo -e "${GREEN}✅ API service deployed with authentication required${NC}"
@@ -110,29 +124,22 @@ API_URL=$(gcloud run services describe "$API_SERVICE" \
     --project="$PROJECT_ID" \
     --format="value(status.url)")
 
-echo -e "${BLUE}5. Enabling IAP on API Service...${NC}"
-# Enable IAP on the Cloud Run service
-gcloud run services add-iam-policy-binding "$API_SERVICE" \
-    --region="$REGION" \
-    --member="allAuthenticatedUsers" \
-    --role="roles/run.invoker" \
-    --project="$PROJECT_ID" 2>/dev/null || echo -e "${YELLOW}⚠️  IAM policy may already be set${NC}"
-
-echo -e "${GREEN}✅ IAP enabled on API service${NC}"
+echo -e "${BLUE}5. API Service deployed (Custom Firestore Auth protects endpoints)${NC}"
+echo -e "${GREEN}✅ API service deployed - authentication handled by custom Firestore auth${NC}"
 echo ""
 
 # Update API service with CORS settings (will be updated after UI is deployed)
-echo -e "${BLUE}6. Deploying UI Service with IAP...${NC}"
+echo -e "${BLUE}6. Deploying UI Service...${NC}"
 cd "$(dirname "$0")/../frontend"
 
-# Build frontend with API URL
+# Build frontend with API URL (no Firebase config needed)
 echo -e "${YELLOW}Building frontend with API URL: $API_URL${NC}"
 export VITE_API_URL="$API_URL"
 
-# Check if cloudbuild.yaml exists, otherwise build manually
+# Build frontend with just API URL (no Firebase config)
 if [ -f "cloudbuild.yaml" ]; then
     gcloud builds submit --config=cloudbuild.yaml \
-        --substitutions=_API_URL="$API_URL" \
+        --substitutions="_API_URL=$API_URL" \
         . --project="$PROJECT_ID"
 else
     echo -e "${YELLOW}⚠️  Cloud Build config not found, building manually...${NC}"
@@ -149,6 +156,14 @@ else
     rm Dockerfile.temp
 fi
 
+# First, try to clear VPC connector if service exists (ignore errors)
+echo -e "${YELLOW}Clearing VPC connector from existing service (if any)...${NC}"
+gcloud run services update "$UI_SERVICE" \
+    --region="$REGION" \
+    --clear-vpc-connector \
+    --project="$PROJECT_ID" 2>/dev/null || echo -e "${YELLOW}  Service may not exist yet or VPC already cleared${NC}"
+
+# Now deploy
 gcloud run deploy "$UI_SERVICE" \
     --image="gcr.io/$PROJECT_ID/$UI_SERVICE:latest" \
     --region="$REGION" \
@@ -158,7 +173,7 @@ gcloud run deploy "$UI_SERVICE" \
     --memory=256Mi \
     --cpu=1 \
     --timeout=300 \
-    --no-allow-unauthenticated \
+    --allow-unauthenticated \
     --project="$PROJECT_ID"
 
 echo -e "${GREEN}✅ UI service deployed with authentication required${NC}"
@@ -180,15 +195,8 @@ gcloud run services update "$API_SERVICE" \
 echo -e "${GREEN}✅ CORS updated with UI URL${NC}"
 echo ""
 
-echo -e "${BLUE}8. Enabling IAP on UI Service...${NC}"
-# Enable IAP on the Cloud Run service
-gcloud run services add-iam-policy-binding "$UI_SERVICE" \
-    --region="$REGION" \
-    --member="allAuthenticatedUsers" \
-    --role="roles/run.invoker" \
-    --project="$PROJECT_ID" 2>/dev/null || echo -e "${YELLOW}⚠️  IAM policy may already be set${NC}"
-
-echo -e "${GREEN}✅ IAP enabled on UI service${NC}"
+echo -e "${BLUE}8. UI Service deployed (Custom Firestore Auth protects access)${NC}"
+echo -e "${GREEN}✅ UI service deployed - authentication handled by custom Firestore auth${NC}"
 echo ""
 
 # Get service URLs
@@ -200,7 +208,7 @@ echo ""
 echo -e "${BLUE}📋 What was deployed:${NC}"
 echo "  ✅ Backend API: $API_SERVICE"
 echo "  ✅ Frontend UI: $UI_SERVICE"
-echo "  ✅ Both services configured with IAP authentication"
+echo "  ✅ Both services configured with custom Firestore authentication"
 echo "  ✅ No DNS or load balancer required!"
 echo ""
 echo -e "${BLUE}🌐 Service URLs:${NC}"
@@ -208,9 +216,9 @@ echo "  API Service: $API_URL"
 echo "  UI Service: $UI_URL"
 echo ""
 echo -e "${YELLOW}⚠️  IMPORTANT:${NC}"
-echo "  1. Users will need to authenticate with Google accounts"
-echo "  2. Update frontend API_URL to: $API_URL"
-echo "  3. Grant specific users/groups access if needed:"
+echo "  1. Users can sign up with @asl.apps-eval.com email addresses"
+echo "  2. Frontend API_URL is already configured: $API_URL"
+echo "  3. Authentication uses Firestore (no additional setup needed)"
 echo ""
 echo "     # Grant access to specific user"
 echo "     gcloud run services add-iam-policy-binding $API_SERVICE \\"

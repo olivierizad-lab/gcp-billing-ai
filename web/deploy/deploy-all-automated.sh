@@ -102,6 +102,7 @@ gcloud services enable \
     aiplatform.googleapis.com \
     logging.googleapis.com \
     monitoring.googleapis.com \
+    dns.googleapis.com \
     --project="$PROJECT_ID" \
     --quiet
 
@@ -196,7 +197,6 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --quiet
 
 # Grant Cloud Build permissions (for deployment)
-CLOUD_BUILD_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
 CLOUD_BUILD_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
 
@@ -229,14 +229,16 @@ echo ""
 
 echo -e "${BLUE}Step 6: Deploying Applications...${NC}"
 export PROJECT_ID REGION
-"$SCRIPT_DIR/03-applications-iap.sh"
+# Export Firebase config if provided
+export FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN FIREBASE_PROJECT_ID
+export FIREBASE_STORAGE_BUCKET FIREBASE_MESSAGING_SENDER_ID FIREBASE_APP_ID
+"$SCRIPT_DIR/03-applications.sh"
 echo ""
-
-e
 
 echo -e "${BLUE}Step 7: Creating Load Balancer...${NC}"
 export PROJECT_ID REGION DOMAIN
-"$SCRIPT_DIR/04-load-balancer.sh"
+# Load balancer not needed - using simple Cloud Run deployment
+# "$SCRIPT_DIR/04-load-balancer.sh"
 echo ""
 
 echo -e "${BLUE}Step 8: Configuring Authentication...${NC}"

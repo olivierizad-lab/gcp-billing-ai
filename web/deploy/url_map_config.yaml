@@ -1,0 +1,14 @@
+creationTimestamp: '2025-11-05T23:00:05.327-08:00'
+defaultService: https://www.googleapis.com/compute/v1/projects/qwiklabs-asl-04-8e9f23e85ced/global/backendServices/agent-engine-ui-backend
+fingerprint: 9npyPexXVeA=
+hostRules:
+- hosts:
+  - '*'
+  pathMatcher: api-matcher
+id: '5645160929380399514'
+kind: compute#urlMap
+name: agent-engine-url-map
+pathMatchers:
+- defaultService: https://www.googleapis.com/compute/v1/projects/qwiklabs-asl-04-8e9f23e85ced/global/backendServices/agent-engine-ui-backend
+  name: api-matcher
+selfLink: https://www.googleapis.com/compute/v1/projects/qwiklabs-asl-04-8e9f23e85ced/global/urlMaps/agent-engine-url-map

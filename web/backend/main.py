@@ -10,15 +10,20 @@ import os
 import json
 from pathlib import Path
 from typing import Optional, List
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
 import google.auth
 from google.auth.transport.requests import Request
 import requests
 from history import save_query, get_query_history, delete_query, delete_all_history
+from auth import (
+    create_user, authenticate_user, get_user_by_id, delete_user,
+    create_access_token, decode_token, validate_email_domain, REQUIRED_DOMAIN
+)
 
 # Load environment variables (optional - for local development only)
 # In Cloud Run/Docker, all configuration comes from environment variables
@@ -52,6 +57,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# JWT Bearer token security
+security = HTTPBearer()
+
+# Authentication dependency
+async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Verify JWT token from Authorization header."""
+    token = credentials.credentials
+    
+    # Decode and verify the token
+    decoded_token = decode_token(token)
+    if not decoded_token:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+    # Get user to verify they're still active
+    user = get_user_by_id(decoded_token.get("user_id"))
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+    
+    return decoded_token
 
 # Configuration
 PROJECT_ID = os.getenv("BQ_PROJECT") or os.getenv("GCP_PROJECT_ID", "qwiklabs-asl-04-8e9f23e85ced")
@@ -113,6 +138,26 @@ def load_agent_configs():
 
 AGENT_CONFIGS = load_agent_configs()
 
+
+# Authentication models
+class SignupRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user_id: str
+    email: str
+
+class UserResponse(BaseModel):
+    user_id: str
+    email: str
+    created_at: Optional[str] = None
 
 class QueryRequest(BaseModel):
     message: str
@@ -518,8 +563,60 @@ async def root():
     }
 
 
+# Authentication endpoints
+@app.post("/auth/signup", response_model=UserResponse)
+async def signup(request: SignupRequest):
+    """Create a new user account."""
+    try:
+        user = create_user(request.email, request.password)
+        return UserResponse(**user)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create account: {str(e)}")
+
+
+@app.post("/auth/login", response_model=TokenResponse)
+async def login(request: LoginRequest):
+    """Login and get access token."""
+    user = authenticate_user(request.email, request.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    # Create access token
+    access_token = create_access_token(
+        data={"sub": user["user_id"], "email": user["email"]}
+    )
+    
+    return TokenResponse(
+        access_token=access_token,
+        user_id=user["user_id"],
+        email=user["email"]
+    )
+
+
+@app.get("/auth/me", response_model=UserResponse)
+async def get_current_user(user_token: dict = Depends(verify_token)):
+    """Get current user information."""
+    user = get_user_by_id(user_token.get("user_id"))
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return UserResponse(**user)
+
+
+@app.delete("/auth/me")
+async def delete_current_user(user_token: dict = Depends(verify_token)):
+    """Delete current user account."""
+    user_id = user_token.get("user_id")
+    success = delete_user(user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"success": True, "message": "Account deleted"}
+
+
 @app.get("/agents", response_model=List[AgentInfo])
-async def list_agents():
+async def list_agents(user_token: dict = Depends(verify_token)):
     """List all available agents."""
     agents = []
     for agent_name, config in AGENT_CONFIGS.items():
@@ -534,7 +631,7 @@ async def list_agents():
 
 
 @app.post("/query/stream")
-async def query_stream(request: QueryRequest):
+async def query_stream(request: QueryRequest, user_token: dict = Depends(verify_token)):
     """
     Stream query to an agent and save to Firestore.
     
@@ -627,29 +724,32 @@ async def debug_agents():
 
 
 @app.get("/history")
-async def get_history(user_id: str = "default_user", limit: int = 50):
+async def get_history(user_id: str, limit: int = 50, user_token: dict = Depends(verify_token)):
     """
     Get query history for a user.
     
-    Only returns history for the specified user_id.
-    In production, user_id should come from authenticated session/IAP.
+    Only returns history for the authenticated user.
     
     Args:
-        user_id: User ID (must be valid, sanitized)
+        user_id: User ID (must match authenticated user's user_id)
         limit: Maximum number of queries to return (default: 50, max: 100)
     
     Returns:
-        List of query history items (only for the specified user)
+        List of query history items (only for the authenticated user)
     """
+    # Verify user_id matches authenticated user
+    if user_id != user_token.get("user_id"):
+        raise HTTPException(status_code=403, detail="Cannot access other users' history")
+    
     # Validate and sanitize user_id
     if not user_id or not isinstance(user_id, str):
-        user_id = "default_user"
+        raise HTTPException(status_code=400, detail="Invalid user_id")
     
     # Sanitize: only allow alphanumeric, underscore, hyphen
     import re
     user_id = re.sub(r'[^a-zA-Z0-9_-]', '', user_id)
     if not user_id:
-        user_id = "default_user"
+        raise HTTPException(status_code=400, detail="Invalid user_id")
     
     # Limit the limit parameter
     limit = min(max(1, limit), 100)
@@ -685,26 +785,30 @@ async def get_history(user_id: str = "default_user", limit: int = 50):
 
 
 @app.delete("/history/{query_id}")
-async def delete_history_item(query_id: str, user_id: str = "default_user"):
+async def delete_history_item(query_id: str, user_id: str, user_token: dict = Depends(verify_token)):
     """
     Delete a specific query from history.
     
-    Only allows deletion if the query belongs to the specified user_id.
+    Only allows deletion if the query belongs to the authenticated user.
     
     Args:
         query_id: Document ID of the query to delete
-        user_id: User ID (for verification - must match query owner)
+        user_id: User ID (must match authenticated user's user_id)
     
     Returns:
         Success message
     """
+    # Verify user_id matches authenticated user
+    if user_id != user_token.get("user_id"):
+        raise HTTPException(status_code=403, detail="Cannot delete other users' queries")
+    
     # Validate and sanitize user_id
     import re
     if not user_id or not isinstance(user_id, str):
-        user_id = "default_user"
+        raise HTTPException(status_code=400, detail="Invalid user_id")
     user_id = re.sub(r'[^a-zA-Z0-9_-]', '', user_id)
     if not user_id:
-        user_id = "default_user"
+        raise HTTPException(status_code=400, detail="Invalid user_id")
     
     try:
         # This verifies the query belongs to the user before deleting
@@ -719,25 +823,27 @@ async def delete_history_item(query_id: str, user_id: str = "default_user"):
 
 
 @app.delete("/history")
-async def delete_all_history_endpoint(user_id: str = "default_user"):
+async def delete_all_history_endpoint(user_id: str, user_token: dict = Depends(verify_token)):
     """
-    Delete all query history for a user.
-    
-    Only deletes history for the specified user_id.
+    Delete all query history for the authenticated user.
     
     Args:
-        user_id: User ID (must be valid, sanitized)
+        user_id: User ID (must match authenticated user's user_id)
     
     Returns:
-        Number of queries deleted (only for the specified user)
+        Number of queries deleted (only for the authenticated user)
     """
+    # Verify user_id matches authenticated user
+    if user_id != user_token.get("user_id"):
+        raise HTTPException(status_code=403, detail="Cannot delete other users' history")
+    
     # Validate and sanitize user_id
     import re
     if not user_id or not isinstance(user_id, str):
-        user_id = "default_user"
+        raise HTTPException(status_code=400, detail="Invalid user_id")
     user_id = re.sub(r'[^a-zA-Z0-9_-]', '', user_id)
     if not user_id:
-        user_id = "default_user"
+        raise HTTPException(status_code=400, detail="Invalid user_id")
     
     try:
         # This will only delete history for the specified user_id

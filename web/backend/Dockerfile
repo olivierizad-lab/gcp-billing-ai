@@ -12,7 +12,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY main.py history.py ./
+COPY main.py history.py auth.py ./
 
 # Note: Agent .env files are not copied - use environment variables instead
 # Cloud Run environment variables should be set for:

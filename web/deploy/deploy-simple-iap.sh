@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Simple IAP Deployment - No DNS or Load Balancer Required!
-# This script deploys Cloud Run services with native IAP support
-# Based on provisioner project but simplified for Cloud Run native IAP
+# Simple Deployment - Cloud Run with Custom Firestore Authentication
+# This script deploys Cloud Run services with custom authentication using Firestore
+# No DNS, Load Balancer, or Firebase Authentication required!
 
 set -e  # Exit on any error
 
@@ -17,13 +17,14 @@ NC='\033[0m' # No Color
 PROJECT_ID="${PROJECT_ID:-qwiklabs-asl-04-8e9f23e85ced}"
 REGION="${REGION:-us-central1}"
 
-echo -e "${BLUE}🚀 Simple IAP Deployment (No DNS Required!)${NC}"
-echo -e "${BLUE}============================================${NC}"
+echo -e "${BLUE}🚀 Simple Deployment with Firestore Authentication${NC}"
+echo -e "${BLUE}==================================================${NC}"
 echo ""
-echo -e "${YELLOW}This deployment uses Cloud Run's native IAP support.${NC}"
+echo -e "${YELLOW}This deployment uses custom authentication with Firestore.${NC}"
 echo -e "${YELLOW}✅ No DNS configuration needed${NC}"
 echo -e "${YELLOW}✅ No load balancer needed${NC}"
-echo -e "${YELLOW}✅ No SSL certificate needed${NC}"
+echo -e "${YELLOW}✅ No Firebase Authentication needed${NC}"
+echo -e "${YELLOW}✅ Uses existing Firestore for user storage${NC}"
 echo -e "${YELLOW}✅ Simple and secure!${NC}"
 echo ""
 echo -e "${YELLOW}Configuration:${NC}"
@@ -60,10 +61,23 @@ echo ""
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Run infrastructure and IAM scripts (these are still needed)
-echo -e "${BLUE}=== Setting up Infrastructure ===${NC}"
+# Run infrastructure script but skip VPC (we don't need it for simple deployment)
+echo -e "${BLUE}=== Setting up Infrastructure (skipping VPC) ===${NC}"
 export PROJECT_ID REGION
-"$SCRIPT_DIR/01-infrastructure.sh" 2>/dev/null || echo -e "${YELLOW}⚠️  Some infrastructure may already exist (continuing...)${NC}"
+# Only enable APIs and create service accounts, skip VPC
+gcloud services enable \
+    run.googleapis.com \
+    cloudbuild.googleapis.com \
+    cloudresourcemanager.googleapis.com \
+    iam.googleapis.com \
+    storage.googleapis.com \
+    firestore.googleapis.com \
+    bigquery.googleapis.com \
+    aiplatform.googleapis.com \
+    logging.googleapis.com \
+    monitoring.googleapis.com \
+    --project="$PROJECT_ID" \
+    --quiet 2>/dev/null || echo -e "${YELLOW}⚠️  Some APIs may already be enabled${NC}"
 
 echo ""
 echo -e "${BLUE}=== Setting up IAM Permissions ===${NC}"
@@ -74,8 +88,9 @@ export PROJECT_ID
 # Or use deploy-all-automated.sh for full automation including security
 
 echo ""
-echo -e "${BLUE}=== Deploying Applications with Native IAP ===${NC}"
+echo -e "${BLUE}=== Deploying Applications with Firestore Auth ===${NC}"
 export PROJECT_ID REGION
+# No Firebase config needed - using Firestore for auth
 "$SCRIPT_DIR/03-applications-iap.sh"
 
 echo ""
@@ -84,8 +99,8 @@ echo ""
 echo -e "${BLUE}📋 Summary:${NC}"
 echo "  ✅ Service Accounts configured"
 echo "  ✅ Backend and Frontend Cloud Run services deployed"
-echo "  ✅ IAP authentication enabled"
-echo "  ✅ No DNS or load balancer needed!"
+echo "  ✅ Custom Firestore authentication enabled"
+echo "  ✅ No DNS, load balancer, or Firebase Auth needed!"
 echo ""
 echo -e "${BLUE}🌐 Access your services:${NC}"
 API_URL=$(gcloud run services describe agent-engine-api --region="$REGION" --project="$PROJECT_ID" --format="value(status.url)" 2>/dev/null || echo "Not deployed")
@@ -94,9 +109,9 @@ echo "  API: $API_URL"
 echo "  UI: $UI_URL"
 echo ""
 echo -e "${YELLOW}⚠️  Next Steps:${NC}"
-echo "  1. Users will authenticate with Google accounts when accessing URLs"
-echo "  2. Grant specific users/groups access if needed (see commands above)"
-echo "  3. Update frontend API_URL to use the API service URL"
+echo "  1. Users can sign up with @asl.apps-eval.com email addresses"
+echo "  2. No additional configuration needed - Firestore handles authentication"
+echo "  3. Frontend API_URL is automatically configured"
 echo ""
-echo -e "${GREEN}🚀 Much simpler than load balancer setup!${NC}"
+echo -e "${GREEN}🚀 Simple deployment with Firestore authentication!${NC}"
 

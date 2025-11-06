@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Send, Bot, User, Loader2, AlertCircle, History, Trash2, X } from 'lucide-react'
+import Auth from './Auth'
 import './App.css'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-const USER_ID = 'web_user' // In production, use authenticated user ID
 
 function App() {
+  const [user, setUser] = useState(null)
+  const [userToken, setUserToken] = useState(null)
   const [agents, setAgents] = useState([])
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [messages, setMessages] = useState([])
@@ -19,11 +21,59 @@ function App() {
   const messagesEndRef = useRef(null)
   const abortControllerRef = useRef(null)
 
-  // Load agents and history on mount
+  // Check for existing auth token on mount
   useEffect(() => {
-    loadAgents()
-    loadHistory()
+    const token = localStorage.getItem('auth_token')
+    const userId = localStorage.getItem('user_id')
+    const userEmail = localStorage.getItem('user_email')
+    
+    if (token && userId && userEmail) {
+      // Verify token is still valid by checking user info
+      fetch(`${API_BASE_URL}/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(response => {
+        if (response.ok) {
+          return response.json()
+        } else {
+          // Token invalid, clear storage
+          localStorage.removeItem('auth_token')
+          localStorage.removeItem('user_id')
+          localStorage.removeItem('user_email')
+          setUser(null)
+          setUserToken(null)
+          return null
+        }
+      })
+      .then(userData => {
+        if (userData) {
+          setUser({
+            user_id: userData.user_id,
+            email: userData.email
+          })
+          setUserToken(token)
+        }
+      })
+      .catch(err => {
+        console.error('Error verifying token:', err)
+        localStorage.removeItem('auth_token')
+        localStorage.removeItem('user_id')
+        localStorage.removeItem('user_email')
+        setUser(null)
+        setUserToken(null)
+      })
+    }
   }, [])
+
+  // Load agents and history when user is authenticated
+  useEffect(() => {
+    if (user && userToken) {
+      loadAgents()
+      loadHistory()
+    }
+  }, [user, userToken])
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -31,9 +81,20 @@ function App() {
   }, [messages])
 
   const loadAgents = async () => {
+    if (!userToken) return
     try {
-      const response = await fetch(`${API_BASE_URL}/agents`)
-      if (!response.ok) throw new Error('Failed to load agents')
+      const response = await fetch(`${API_BASE_URL}/agents`, {
+        headers: {
+          'Authorization': `Bearer ${userToken}`
+        }
+      })
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Authentication failed. Please sign in again.')
+          return
+        }
+        throw new Error('Failed to load agents')
+      }
       const data = await response.json()
       setAgents(data)
       
@@ -48,10 +109,21 @@ function App() {
   }
 
   const loadHistory = async () => {
+    if (!user || !userToken) return
     setIsLoadingHistory(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/history?user_id=${USER_ID}&limit=50`)
-      if (!response.ok) throw new Error('Failed to load history')
+      const response = await fetch(`${API_BASE_URL}/history?user_id=${user.user_id}&limit=50`, {
+        headers: {
+          'Authorization': `Bearer ${userToken}`
+        }
+      })
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Authentication failed')
+          return
+        }
+        throw new Error('Failed to load history')
+      }
       const data = await response.json()
       setHistory(data)
     } catch (err) {
@@ -89,15 +161,26 @@ function App() {
   const deleteHistoryItem = async (queryId, e) => {
     e.stopPropagation() // Prevent loading the history item when clicking delete
     
+    if (!user || !userToken) return
+    
     if (!confirm('Delete this query from history?')) {
       return
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/history/${queryId}?user_id=${USER_ID}`, {
-        method: 'DELETE'
+      const response = await fetch(`${API_BASE_URL}/history/${queryId}?user_id=${user.user_id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${userToken}`
+        }
       })
-      if (!response.ok) throw new Error('Failed to delete query')
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Authentication failed. Please sign in again.')
+          return
+        }
+        throw new Error('Failed to delete query')
+      }
       
       // Remove from local state
       setHistory(prev => prev.filter(item => item.id !== queryId))
@@ -110,15 +193,26 @@ function App() {
   }
 
   const deleteAllHistory = async () => {
+    if (!user || !userToken) return
+    
     if (!confirm('Delete all query history? This cannot be undone.')) {
       return
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/history?user_id=${USER_ID}`, {
-        method: 'DELETE'
+      const response = await fetch(`${API_BASE_URL}/history?user_id=${user.user_id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${userToken}`
+        }
       })
-      if (!response.ok) throw new Error('Failed to delete history')
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Authentication failed. Please sign in again.')
+          return
+        }
+        throw new Error('Failed to delete history')
+      }
       
       setHistory([])
       setMessages([])
@@ -163,11 +257,12 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`
         },
         body: JSON.stringify({
           agent_name: selectedAgent,
           message: messageWithContext,
-          user_id: 'web_user',
+          user_id: user.user_id,
           session_id: getSessionId() // Include session ID for conversation context
         }),
         signal: abortControllerRef.current.signal
@@ -312,6 +407,11 @@ function App() {
 
   const selectedAgentInfo = agents.find(a => a.name === selectedAgent)
 
+  // Show auth screen if not logged in
+  if (!user) {
+    return <Auth user={user} onAuthChange={setUser} />
+  }
+
   return (
     <div className="app">
       {/* Header */}
@@ -323,6 +423,7 @@ function App() {
             <span className="header-subtitle">Agent Engine Chat</span>
           </div>
           <div className="header-right">
+            <Auth user={user} onAuthChange={setUser} />
             <select
               className="agent-selector"
               value={selectedAgent || ''}
