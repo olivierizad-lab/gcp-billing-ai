@@ -2,7 +2,12 @@ import React, { useState } from 'react'
 import { LogIn, UserPlus, Mail, Lock, AlertCircle, X, User, Trash2 } from 'lucide-react'
 import './Auth.css'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// API URL must be set at build time - no default to prevent production errors
+const API_BASE_URL = import.meta.env.VITE_API_URL
+if (!API_BASE_URL) {
+  console.error('VITE_API_URL is not set! The application will not work correctly.')
+  throw new Error('VITE_API_URL environment variable is required')
+}
 const REQUIRED_DOMAIN = 'asl.apps-eval.com' // Internal use only - don't expose to users
 
 function Auth({ user, onAuthChange }) {

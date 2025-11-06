@@ -3,7 +3,12 @@ import { Send, Bot, User, Loader2, AlertCircle, History, Trash2, X } from 'lucid
 import Auth from './Auth'
 import './App.css'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// API URL must be set at build time - no default to prevent production errors
+const API_BASE_URL = import.meta.env.VITE_API_URL
+if (!API_BASE_URL) {
+  console.error('VITE_API_URL is not set! The application will not work correctly.')
+  throw new Error('VITE_API_URL environment variable is required')
+}
 
 function App() {
   const [user, setUser] = useState(null)
@@ -67,10 +72,14 @@ function App() {
     }
   }, [])
 
-  // Load agents and history when user is authenticated
+  // Load agents on mount (public endpoint, no auth required)
+  useEffect(() => {
+    loadAgents()
+  }, [])
+
+  // Load history when user is authenticated
   useEffect(() => {
     if (user && userToken) {
-      loadAgents()
       loadHistory()
     }
   }, [user, userToken])
@@ -81,29 +90,40 @@ function App() {
   }, [messages])
 
   const loadAgents = async () => {
-    if (!userToken) return
+    if (!API_BASE_URL) {
+      console.error('loadAgents: API_BASE_URL is not set!')
+      setError('API URL is not configured. Please refresh the page.')
+      return
+    }
     try {
-      const response = await fetch(`${API_BASE_URL}/agents`, {
-        headers: {
-          'Authorization': `Bearer ${userToken}`
-        }
-      })
+      console.log('loadAgents: Fetching from', `${API_BASE_URL}/agents`)
+      // Agents endpoint is public (no auth required)
+      const headers = {}
+      if (userToken) {
+        headers['Authorization'] = `Bearer ${userToken}`
+      }
+      const response = await fetch(`${API_BASE_URL}/agents`, { headers })
+      console.log('loadAgents: Response status', response.status)
       if (!response.ok) {
-        if (response.status === 401) {
-          setError('Authentication failed. Please sign in again.')
-          return
-        }
-        throw new Error('Failed to load agents')
+        const errorText = await response.text()
+        console.error('loadAgents: Error response', errorText)
+        throw new Error(`Failed to load agents: ${response.status} ${errorText}`)
       }
       const data = await response.json()
+      console.log('loadAgents: Received agents', data)
       setAgents(data)
       
       // Auto-select first available agent
       const available = data.find(a => a.is_available)
       if (available) {
         setSelectedAgent(available.name)
+      } else if (data.length > 0) {
+        console.warn('loadAgents: No available agents found, but agents exist:', data)
+      } else {
+        console.warn('loadAgents: No agents returned from API')
       }
     } catch (err) {
+      console.error('loadAgents: Exception', err)
       setError(`Failed to load agents: ${err.message}`)
     }
   }

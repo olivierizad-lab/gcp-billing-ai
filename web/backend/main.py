@@ -617,8 +617,10 @@ async def delete_current_user(user_token: dict = Depends(verify_token)):
 
 
 @app.get("/agents", response_model=List[AgentInfo])
-async def list_agents(user_token: dict = Depends(verify_token)):
+async def list_agents():
     """List all available agents."""
+    # Note: Agents list is public (no auth required) - agent info is not sensitive
+    # This allows the frontend to load agents before authentication
     agents = []
     for agent_name, config in AGENT_CONFIGS.items():
         agents.append(AgentInfo(
