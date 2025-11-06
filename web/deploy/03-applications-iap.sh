@@ -106,8 +106,26 @@ cd "$(dirname "$0")/../backend"
 
 # Get UI service URL for CORS (will be set after UI deployment, but prepare the variable)
 # We'll update it after UI is deployed
+# Generate or retrieve JWT_SECRET_KEY (must be consistent across deployments)
+# Check if JWT_SECRET_KEY already exists in the service
+EXISTING_JWT_SECRET=$(gcloud run services describe "$API_SERVICE" \
+    --region="$REGION" \
+    --project="$PROJECT_ID" \
+    --format="value(spec.template.spec.containers[0].env)" 2>/dev/null | \
+    grep -o "JWT_SECRET_KEY[^;]*" | cut -d"'" -f4 || echo "")
+
+if [ -z "$EXISTING_JWT_SECRET" ]; then
+    # Generate a new JWT secret key
+    JWT_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))" 2>/dev/null || openssl rand -base64 32 | tr -d '\n')
+    echo -e "${YELLOW}⚠️  Generated new JWT_SECRET_KEY (first deployment)${NC}"
+else
+    # Use existing JWT secret key to maintain token validity
+    JWT_SECRET_KEY="$EXISTING_JWT_SECRET"
+    echo -e "${GREEN}✅ Using existing JWT_SECRET_KEY${NC}"
+fi
+
 # Prepare backend environment variables
-BACKEND_ENV_VARS="BQ_AGENT_MICK_REASONING_ENGINE_ID=$BQ_AGENT_MICK_ID,BQ_PROJECT=$PROJECT_ID,LOCATION=$REGION"
+BACKEND_ENV_VARS="BQ_AGENT_MICK_REASONING_ENGINE_ID=$BQ_AGENT_MICK_ID,BQ_PROJECT=$PROJECT_ID,LOCATION=$REGION,JWT_SECRET_KEY=$JWT_SECRET_KEY"
 if [ -n "$BQ_AGENT_ID" ]; then
     BACKEND_ENV_VARS="$BACKEND_ENV_VARS,BQ_AGENT_REASONING_ENGINE_ID=$BQ_AGENT_ID"
 fi

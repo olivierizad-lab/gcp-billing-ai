@@ -13,6 +13,28 @@ if (!API_BASE_URL) {
 function App() {
   const [user, setUser] = useState(null)
   const [userToken, setUserToken] = useState(null)
+  
+  // Handle auth changes from Auth component
+  const handleAuthChange = (newUser) => {
+    if (newUser) {
+      // Get token from localStorage (Auth component just stored it)
+      const token = localStorage.getItem('auth_token')
+      if (token) {
+        setUser(newUser)
+        setUserToken(token)
+        console.log('handleAuthChange: User and token set', { user: newUser, token: token.substring(0, 20) + '...' })
+      } else {
+        console.error('handleAuthChange: No token found in localStorage')
+        setUser(null)
+        setUserToken(null)
+      }
+    } else {
+      // User logged out
+      setUser(null)
+      setUserToken(null)
+    }
+  }
+  
   const [agents, setAgents] = useState([])
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [messages, setMessages] = useState([])
@@ -35,15 +57,19 @@ function App() {
     if (token && userId && userEmail) {
       // Verify token is still valid by checking user info
       fetch(`${API_BASE_URL}/auth/me`, {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'  // Include credentials for CORS
       })
       .then(response => {
         if (response.ok) {
           return response.json()
         } else {
-          // Token invalid, clear storage
+          // Token invalid or expired, clear storage
+          console.log('Token verification failed, clearing storage')
           localStorage.removeItem('auth_token')
           localStorage.removeItem('user_id')
           localStorage.removeItem('user_email')
@@ -54,20 +80,26 @@ function App() {
       })
       .then(userData => {
         if (userData) {
+          console.log('Token verified, user authenticated:', userData)
           setUser({
             user_id: userData.user_id,
             email: userData.email
           })
-          setUserToken(token)
+          setUserToken(token)  // Make sure token is set
+          console.log('userToken set to:', token.substring(0, 20) + '...')
         }
       })
       .catch(err => {
         console.error('Error verifying token:', err)
-        localStorage.removeItem('auth_token')
-        localStorage.removeItem('user_id')
-        localStorage.removeItem('user_email')
-        setUser(null)
-        setUserToken(null)
+        // Don't clear storage on network errors - might be temporary
+        // Only clear if it's a 401 (handled above) or if we're sure it's an auth error
+        if (err.message && err.message.includes('401')) {
+          localStorage.removeItem('auth_token')
+          localStorage.removeItem('user_id')
+          localStorage.removeItem('user_email')
+          setUser(null)
+          setUserToken(null)
+        }
       })
     }
   }, [])
@@ -244,6 +276,19 @@ function App() {
   const sendMessage = async (e) => {
     e.preventDefault()
     if (!input.trim() || !selectedAgent || isLoading) return
+    
+    // Check if we have a valid token
+    if (!userToken) {
+      console.error('sendMessage: No userToken available')
+      setError('Authentication required. Please log in again.')
+      return
+    }
+    
+    if (!user || !user.user_id) {
+      console.error('sendMessage: No user or user_id available')
+      setError('User information missing. Please log in again.')
+      return
+    }
 
     const userMessage = {
       role: 'user',
@@ -273,6 +318,7 @@ function App() {
         ? `${contextMessages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')}\n\nUser: ${userMessage.content}`
         : userMessage.content
 
+      console.log('sendMessage: Sending query with token:', userToken.substring(0, 20) + '...')
       const response = await fetch(`${API_BASE_URL}/query/stream`, {
         method: 'POST',
         headers: {
@@ -282,7 +328,7 @@ function App() {
         body: JSON.stringify({
           agent_name: selectedAgent,
           message: messageWithContext,
-          user_id: user.user_id,
+          // Note: user_id is not sent - backend uses authenticated user's ID from token
           session_id: getSessionId() // Include session ID for conversation context
         }),
         signal: abortControllerRef.current.signal
@@ -429,7 +475,7 @@ function App() {
 
   // Show auth screen if not logged in
   if (!user) {
-    return <Auth user={user} onAuthChange={setUser} />
+    return <Auth user={user} onAuthChange={handleAuthChange} />
   }
 
   return (
@@ -443,7 +489,7 @@ function App() {
             <span className="header-subtitle">Agent Engine Chat</span>
           </div>
           <div className="header-right">
-            <Auth user={user} onAuthChange={setUser} />
+            <Auth user={user} onAuthChange={handleAuthChange} />
             <select
               className="agent-selector"
               value={selectedAgent || ''}

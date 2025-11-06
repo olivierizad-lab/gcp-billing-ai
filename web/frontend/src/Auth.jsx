@@ -143,11 +143,12 @@ function Auth({ user, onAuthChange }) {
       localStorage.setItem('user_id', tokenData.user_id)
       localStorage.setItem('user_email', tokenData.email)
       
-      // Call onAuthChange with user object
+      console.log('Login successful, stored token:', tokenData.access_token.substring(0, 20) + '...')
+      
+      // Call onAuthChange with user object (App.jsx will handle setting userToken)
       onAuthChange({
         user_id: tokenData.user_id,
-        email: tokenData.email,
-        token: tokenData.access_token
+        email: tokenData.email
       })
       
       setEmail('')

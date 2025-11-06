@@ -50,13 +50,21 @@ else:
         "http://127.0.0.1:5173"
     ]
 
+# Always allow the UI service origin if we can detect it
+ui_origin = "https://agent-engine-ui-jgvhuxsatq-uc.a.run.app"
+if ui_origin not in allowed_origins:
+    allowed_origins.append(ui_origin)
+
+# Add CORS middleware - must be added before other middleware
+# This ensures CORS headers are included in ALL responses, including errors
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
     expose_headers=["*"],
+    max_age=600,  # Cache preflight requests for 10 minutes
 )
 
 # JWT Bearer token security
@@ -163,8 +171,8 @@ class UserResponse(BaseModel):
 class QueryRequest(BaseModel):
     message: str
     agent_name: str
-    user_id: Optional[str] = "default_user"
     session_id: Optional[str] = None  # Session ID for conversation context
+    # Note: user_id is removed - we use the authenticated user's ID from the token
 
 
 class QueryResponse(BaseModel):
@@ -204,7 +212,7 @@ def get_credentials():
     return credentials
 
 
-def query_agent_stream(agent_name: str, message: str, user_id: str = "default_user"):
+def query_agent_stream(agent_name: str, message: str, user_id: str):
     """
     Stream query to the agent via Vertex AI REST API.
     
@@ -290,7 +298,7 @@ def query_agent_stream(agent_name: str, message: str, user_id: str = "default_us
         raise HTTPException(status_code=500, detail=f"Request failed: {str(e)}")
 
 
-def query_agent_stream_with_save(agent_name: str, message: str, user_id: str = "default_user", session_id: Optional[str] = None):
+def query_agent_stream_with_save(agent_name: str, message: str, user_id: str, session_id: Optional[str] = None):
     """
     Stream query to agent and save to Firestore after completion.
     
@@ -642,12 +650,20 @@ async def query_stream(request: QueryRequest, user_token: dict = Depends(verify_
     Query is automatically saved to Firestore after completion.
     
     If session_id is provided, the agent will maintain conversation context.
+    
+    IMPORTANT: Uses the authenticated user's ID from the token, not from the request.
+    This ensures users can only save queries under their own account.
     """
+    # Get user_id from the authenticated token (security: don't trust client)
+    authenticated_user_id = user_token.get("user_id")
+    if not authenticated_user_id:
+        raise HTTPException(status_code=401, detail="User ID not found in token")
+    
     return StreamingResponse(
         query_agent_stream_with_save(
             request.agent_name, 
             request.message, 
-            request.user_id,
+            authenticated_user_id,  # Use authenticated user's ID
             request.session_id
         ),
         media_type="text/event-stream",
@@ -660,16 +676,23 @@ async def query_stream(request: QueryRequest, user_token: dict = Depends(verify_
 
 
 @app.post("/query", response_model=QueryResponse)
-async def query(request: QueryRequest):
+async def query(request: QueryRequest, user_token: dict = Depends(verify_token)):
     """
     Query an agent (non-streaming, returns complete response).
     
     Use /query/stream for streaming responses.
+    
+    IMPORTANT: Uses the authenticated user's ID from the token, not from the request.
     """
+    # Get user_id from the authenticated token (security: don't trust client)
+    authenticated_user_id = user_token.get("user_id")
+    if not authenticated_user_id:
+        raise HTTPException(status_code=401, detail="User ID not found in token")
+    
     response_text = ""
     query_id = None
     try:
-        for chunk in query_agent_stream_with_save(request.agent_name, request.message, request.user_id):
+        for chunk in query_agent_stream_with_save(request.agent_name, request.message, authenticated_user_id):
             if chunk.startswith("data: "):
                 data_str = chunk[6:].strip()
                 if data_str:
@@ -691,7 +714,7 @@ async def query(request: QueryRequest):
     return QueryResponse(
         response=response_text,
         agent_name=request.agent_name,
-        user_id=request.user_id,
+        user_id=authenticated_user_id,  # Use authenticated user's ID
         query_id=query_id
     )
 
