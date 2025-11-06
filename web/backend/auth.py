@@ -40,21 +40,23 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     """Hash a password."""
-    # Bcrypt has a 72-byte limit
-    # Convert to bytes to check actual byte length (not character length)
+    # Bcrypt has a 72-byte limit - passlib checks this internally
+    # We need to ensure password is <= 72 bytes BEFORE passing to passlib
     password_bytes = password.encode('utf-8')
     
-    # If password exceeds 72 bytes, truncate it (bcrypt limitation)
-    # This is safe because we're hashing, not storing the plain password
+    # If password exceeds 72 bytes, truncate to exactly 72 bytes
     if len(password_bytes) > 72:
-        # Truncate to exactly 72 bytes
-        password = password_bytes[:72].decode('utf-8', errors='ignore')
-        # Re-encode to ensure we have exactly 72 bytes
-        password_bytes = password.encode('utf-8')
-        if len(password_bytes) > 72:
-            # If still over 72, take first 72 bytes directly
-            password = password_bytes[:72].decode('utf-8', errors='ignore')
+        # Take first 72 bytes and decode back to string
+        # This ensures we never pass more than 72 bytes to bcrypt
+        truncated_bytes = password_bytes[:72]
+        password = truncated_bytes.decode('utf-8', errors='ignore')
+        # Double-check: re-encode to verify it's <= 72 bytes
+        check_bytes = password.encode('utf-8')
+        if len(check_bytes) > 72:
+            # Edge case: if decoding added bytes, take bytes directly
+            password = truncated_bytes.decode('utf-8', errors='ignore')
     
+    # Now password is guaranteed to be <= 72 bytes
     # Passlib will handle the hashing
     return pwd_context.hash(password)
 
