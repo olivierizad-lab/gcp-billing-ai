@@ -15,9 +15,10 @@ includedPermissions:
   - bigquery.tables.getData
   - bigquery.tables.list
   
-  # Vertex AI - Query reasoning engines
+  # Vertex AI - Query and list reasoning engines
   - aiplatform.reasoningEngines.query
   - aiplatform.reasoningEngines.get
+  - aiplatform.reasoningEngines.list
   
   # Firestore - Full CRUD for query history
   - datastore.entities.create

@@ -156,7 +156,7 @@ def scan_agent_engine_reasoning_engines(project_id: str, location: str) -> Dict:
             print(f"  Response: {error_detail}")
             if response.status_code == 403:
                 print("  Permission denied - check IAM permissions for Vertex AI API")
-                print(f"  Service account needs 'roles/aiplatform.user' or 'aiplatform.reasoningEngines.list' permission")
+                print(f"  Service account needs 'roles/aiplatform.user' or both 'aiplatform.reasoningEngines.list' and 'aiplatform.reasoningEngines.get' permissions")
             elif response.status_code == 404:
                 print("  API endpoint not found - check location and project ID")
     
