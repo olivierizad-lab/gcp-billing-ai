@@ -12,11 +12,22 @@ from google.cloud import firestore
 import secrets
 
 # Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Passwords are hashed using bcrypt (one-way, secure, industry standard)
+# Bcrypt hashes are ~60 characters and cannot be reversed
+# Configure passlib to use bcrypt with explicit settings
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=12,  # Standard bcrypt rounds
+    bcrypt__ident="2b"  # Use bcrypt version 2b
+)
 
-# JWT settings
+# JWT token signing (NOT for password encryption!)
+# HS256 = HMAC-SHA256 (256-bit hash algorithm for signing JWT tokens)
+# This signs authentication tokens to prevent tampering
+# Passwords are NOT encrypted with this - they use bcrypt above
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))
-ALGORITHM = "HS256"
+ALGORITHM = "HS256"  # For JWT token signing, not password hashing
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
 # Required email domain
@@ -35,30 +46,78 @@ USERS_COLLECTION = "users"
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against a hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    # Try passlib first (handles both passlib and direct bcrypt hashes)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception:
+        # Fallback to direct bcrypt verification if passlib fails
+        try:
+            import bcrypt
+            return bcrypt.checkpw(
+                plain_password.encode('utf-8'),
+                hashed_password.encode('utf-8')
+            )
+        except Exception:
+            return False
 
 
 def get_password_hash(password: str) -> str:
     """Hash a password."""
-    # Bcrypt has a 72-byte limit - passlib checks this internally
-    # We need to ensure password is <= 72 bytes BEFORE passing to passlib
+    # Bcrypt has a 72-byte limit
+    # Convert to bytes to check actual byte length (not character length)
+    if not isinstance(password, str):
+        password = str(password)
+    
+    # Normalize the password string (remove any hidden characters)
+    password = password.strip()
+    
     password_bytes = password.encode('utf-8')
     
-    # If password exceeds 72 bytes, truncate to exactly 72 bytes
+    # Debug: log password info if there's an issue
     if len(password_bytes) > 72:
-        # Take first 72 bytes and decode back to string
-        # This ensures we never pass more than 72 bytes to bcrypt
+        # Truncate to exactly 72 bytes
         truncated_bytes = password_bytes[:72]
         password = truncated_bytes.decode('utf-8', errors='ignore')
-        # Double-check: re-encode to verify it's <= 72 bytes
-        check_bytes = password.encode('utf-8')
-        if len(check_bytes) > 72:
-            # Edge case: if decoding added bytes, take bytes directly
-            password = truncated_bytes.decode('utf-8', errors='ignore')
+        # Verify: re-encode to ensure it's <= 72 bytes
+        verify_bytes = password.encode('utf-8')
+        if len(verify_bytes) > 72:
+            # Edge case: if decoding somehow added bytes, force truncate again
+            password = verify_bytes[:72].decode('utf-8', errors='ignore')
     
-    # Now password is guaranteed to be <= 72 bytes
-    # Passlib will handle the hashing
-    return pwd_context.hash(password)
+    # Ensure password is a clean string (no None, no empty)
+    if not password:
+        raise ValueError("Password cannot be empty")
+    
+    # Try hashing - if it fails, we'll get a better error
+    try:
+        # Use hash() method directly - this should work for passwords <= 72 bytes
+        hash_result = pwd_context.hash(password)
+        return hash_result
+    except Exception as e:
+        # If we get a 72-byte error, something is very wrong
+        error_msg = str(e)
+        final_bytes = password.encode('utf-8')
+        
+        # Check if it's actually the 72-byte error
+        if "72" in error_msg and "byte" in error_msg.lower():
+            # This shouldn't happen if password is <= 72 bytes
+            # But passlib might be checking something else
+            # Try using bcrypt directly as a workaround
+            import bcrypt
+            try:
+                # Hash with bcrypt directly (bypasses passlib's check)
+                salt = bcrypt.gensalt(rounds=12)
+                hash_bytes = bcrypt.hashpw(password.encode('utf-8'), salt)
+                return hash_bytes.decode('utf-8')
+            except Exception as bcrypt_error:
+                raise ValueError(
+                    f"Password hashing failed. Password: {len(password)} chars, "
+                    f"{len(final_bytes)} bytes. Passlib error: {error_msg}. "
+                    f"Bcrypt direct error: {str(bcrypt_error)}"
+                )
+        else:
+            # Some other error
+            raise ValueError(f"Password hashing failed: {error_msg}")
 
 
 def validate_email_domain(email: str) -> bool:

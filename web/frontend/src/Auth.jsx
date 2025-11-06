@@ -235,44 +235,42 @@ function Auth({ user, onAuthChange }) {
     // For now, just show a message
   }
 
-  // If user is logged in, show account menu
+  // If user is logged in, show account menu (without full-screen container)
   if (user) {
     return (
-      <div className="auth-container">
-        <div className="account-menu">
-          <button 
-            className="account-button"
-            onClick={() => setShowAccountMenu(!showAccountMenu)}
-          >
-            <User size={20} />
-            <span>{user.email}</span>
-          </button>
-          {showAccountMenu && (
-            <div className="account-dropdown">
-              <div className="account-info">
-                <div className="account-email">{user.email || user.user_email}</div>
-                <div className="account-uid">User ID: {user.user_id ? user.user_id.substring(0, 8) + '...' : 'N/A'}</div>
-              </div>
-              <div className="account-actions">
-                <button 
-                  className="account-action-button"
-                  onClick={handleLogout}
-                  disabled={loading}
-                >
-                  Sign Out
-                </button>
-                <button 
-                  className="account-action-button delete-account"
-                  onClick={handleDeleteAccount}
-                  disabled={loading}
-                >
-                  <Trash2 size={16} />
-                  Delete Account
-                </button>
-              </div>
+      <div className="account-menu">
+        <button 
+          className="account-button"
+          onClick={() => setShowAccountMenu(!showAccountMenu)}
+        >
+          <User size={20} />
+          <span>{user.email}</span>
+        </button>
+        {showAccountMenu && (
+          <div className="account-dropdown">
+            <div className="account-info">
+              <div className="account-email">{user.email || user.user_email}</div>
+              <div className="account-uid">User ID: {user.user_id ? user.user_id.substring(0, 8) + '...' : 'N/A'}</div>
             </div>
-          )}
-        </div>
+            <div className="account-actions">
+              <button 
+                className="account-action-button"
+                onClick={handleLogout}
+                disabled={loading}
+              >
+                Sign Out
+              </button>
+              <button 
+                className="account-action-button delete-account"
+                onClick={handleDeleteAccount}
+                disabled={loading}
+              >
+                <Trash2 size={16} />
+                Delete Account
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
