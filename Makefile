@@ -398,6 +398,45 @@ clean-all: clean ## Clean everything including virtual environment
 	rm -rf .venv
 	@echo "✓ Complete clean done"
 
+clean-history: ## Clean up query history from Firestore (use with PROJECT_ID=...)
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		echo "Error: PROJECT_ID is required"; \
+		echo "Usage: make clean-history PROJECT_ID=your-project-id"; \
+		echo "       make clean-history-list PROJECT_ID=your-project-id  # List stats only"; \
+		echo "       make clean-history-user PROJECT_ID=... USER_ID=...  # Delete for specific user"; \
+		exit 1; \
+	fi
+	@cd web/backend && python3 cleanup_history.py --project-id=$(PROJECT_ID) --list
+
+clean-history-list: ## List query history statistics
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		echo "Error: PROJECT_ID is required"; \
+		echo "Usage: make clean-history-list PROJECT_ID=your-project-id"; \
+		exit 1; \
+	fi
+	@cd web/backend && python3 cleanup_history.py --project-id=$(PROJECT_ID) --list
+
+clean-history-user: ## Delete history for a specific user (requires USER_ID=...)
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		echo "Error: PROJECT_ID is required"; \
+		echo "Usage: make clean-history-user PROJECT_ID=... USER_ID=user-id"; \
+		exit 1; \
+	fi
+	@if [ -z "$(USER_ID)" ]; then \
+		echo "Error: USER_ID is required"; \
+		echo "Usage: make clean-history-user PROJECT_ID=... USER_ID=user-id"; \
+		exit 1; \
+	fi
+	@cd web/backend && python3 cleanup_history.py --project-id=$(PROJECT_ID) --user=$(USER_ID)
+
+clean-history-all: ## Delete ALL query history (use with extreme caution!)
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		echo "Error: PROJECT_ID is required"; \
+		echo "Usage: make clean-history-all PROJECT_ID=your-project-id"; \
+		exit 1; \
+	fi
+	@cd web/backend && python3 cleanup_history.py --project-id=$(PROJECT_ID) --all
+
 config: ## Show current configuration
 	@PYTHON_VERSION=$$($(PYTHON) --version 2>&1 | cut -d' ' -f2 2>/dev/null || echo "unknown"); \
 	echo "$(COLOR_BOLD)Current Configuration:$(COLOR_RESET)"; \
