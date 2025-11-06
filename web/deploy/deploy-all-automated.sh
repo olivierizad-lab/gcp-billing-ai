@@ -232,12 +232,19 @@ export PROJECT_ID REGION
 "$SCRIPT_DIR/03-applications-iap.sh"
 echo ""
 
-echo -e "${BLUE}Step 7: Configuring Authentication...${NC}"
+e
+
+echo -e "${BLUE}Step 7: Creating Load Balancer...${NC}"
+export PROJECT_ID REGION DOMAIN
+"$SCRIPT_DIR/04-load-balancer.sh"
+echo ""
+
+echo -e "${BLUE}Step 8: Configuring Authentication...${NC}"
 export PROJECT_ID REGION
 "$SCRIPT_DIR/06-configure-authentication.sh" -y 2>/dev/null || echo -e "${YELLOW}⚠️  Some authentication setup may require manual steps${NC}"
 echo ""
 
-echo -e "${BLUE}Step 8: Applying Security Hardening...${NC}"
+echo -e "${BLUE}Step 9: Applying Security Hardening...${NC}"
 export PROJECT_ID REGION ACCESS_CONTROL_TYPE ACCESS_CONTROL_VALUE
 "$SCRIPT_DIR/05-security-hardening.sh"
 echo ""
