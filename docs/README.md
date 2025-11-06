@@ -14,14 +14,11 @@ This directory contains all project documentation for the GCP Billing Agent Gen 
 - **[GEN_AI_SOLUTION.md](./GEN_AI_SOLUTION.md)** - Complete solution documentation (architecture, features, API, troubleshooting)
 
 ### Deployment Guides
-- **[DEPLOYMENT_CLOUD_RUN.md](./DEPLOYMENT_CLOUD_RUN.md)** - Complete Cloud Run deployment guide (recommended)
-- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - General deployment guide
-- **[DEPLOYMENT_SIMPLE.md](./DEPLOYMENT_SIMPLE.md)** - Simple IAP deployment (no DNS required)
-- **[DEPLOYMENT_BACKEND.md](./DEPLOYMENT_BACKEND.md)** - Backend-specific deployment
-- **[DEPLOYMENT_FRONTEND.md](./DEPLOYMENT_FRONTEND.md)** - Frontend-specific deployment
+- **[DEPLOYMENT_CLOUD_RUN.md](./DEPLOYMENT_CLOUD_RUN.md)** - Complete Cloud Run deployment guide (recommended for advanced users)
+- **[AUTOMATED_DEPLOYMENT.md](./AUTOMATED_DEPLOYMENT.md)** - Fully automated deployment with load balancer and custom domain
+- **[DEPLOYMENT_SIMPLE.md](./DEPLOYMENT_SIMPLE.md)** - Simple IAP deployment (no DNS or load balancer required)
 - **[IAP_DEPLOYMENT.md](./IAP_DEPLOYMENT.md)** - IAP (Identity-Aware Proxy) deployment guide
-- **[README.md](./README.md)** - Deployment scripts documentation (IAP + Load Balancer)
-- **[README-SIMPLE.md](./README-SIMPLE.md)** - Simple IAP deployment documentation
+- **[DEPLOYMENT_FAQ.md](./DEPLOYMENT_FAQ.md)** - Common deployment questions and answers
 
 ### Specialized Topics
 - **[TESTING_HISTORY.md](./TESTING_HISTORY.md)** - Testing the Firestore history feature
@@ -87,16 +84,25 @@ Or edit the scripts directly (they have defaults).
 
 ## Quick Start
 
-### Option 1: Deploy Everything at Once
+### Option 1: Fully Automated Deployment (Recommended)
+
+This option deploys the entire application stack (infrastructure, IAM, backend, frontend, security hardening) with a single command. It sets up a load balancer with IAP and a custom domain.
 
 ```bash
-cd web/deploy
-export PROJECT_ID="your-project-id"
-export DOMAIN="agent-engine.yourdomain.com"
-./deploy-all.sh
+make deploy-web-automated PROJECT_ID="your-project-id" DOMAIN="agent-engine.yourdomain.com" ACCESS_CONTROL_TYPE=domain ACCESS_CONTROL_VALUE=your-domain.com
 ```
 
-### Option 2: Deploy Step by Step
+### Option 2: Simple IAP Deployment
+
+This option deploys the backend and frontend to Cloud Run with native IAP support. No load balancer or custom domain is required.
+
+```bash
+make deploy-web-simple PROJECT_ID="your-project-id"
+```
+
+### Option 3: Step-by-Step Deployment (Advanced)
+
+For more control, you can run the individual deployment scripts located in `web/deploy/`:
 
 ```bash
 cd web/deploy
@@ -115,30 +121,43 @@ export REGION="us-central1"
 
 # 4. Load Balancer + IAP
 ./04-load-balancer.sh
+
+# 5. Security Hardening
+export ACCESS_CONTROL_TYPE=domain
+export ACCESS_CONTROL_VALUE=your-domain.com
+./05-security-hardening.sh
+
+# 6. Configure Authentication
+./06-configure-authentication.sh
+
+# 7. Verify Deployment
+./verify-deployment.sh
 ```
 
-## What Gets Created
+## What Gets Created (Automated Deployment)
 
-### Infrastructure (01-infrastructure.sh)
+### Infrastructure (via `01-infrastructure.sh`)
 - ✅ VPC Network
 - ✅ Subnet
 - ✅ VPC Connector
 - ✅ Service Accounts (API and UI)
 - ✅ Global IP Address
 - ✅ SSL Certificate
+- ✅ Firestore Database
 
-### IAM Permissions (02-iam-permissions.sh)
-- ✅ API Service Account permissions (BigQuery, Vertex AI, Logging)
+### IAM Permissions (via `02-iam-permissions.sh`)
+- ✅ Custom IAM Role (`gcpBillingAgentService`)
+- ✅ API Service Account permissions (BigQuery, Vertex AI, Logging, Firestore)
 - ✅ Frontend Service Account permissions
 - ✅ Cloud Build permissions
 
-### Applications (03-applications.sh)
+### Applications (via `03-applications.sh` or `03-applications-iap.sh`)
 - ✅ Backend API Cloud Run service
 - ✅ Frontend UI Cloud Run service
-- ✅ Both configured for load balancer ingress only
+- ✅ Both configured for load balancer ingress only (automated) or native IAP (simple)
 - ✅ Both configured with no public access (IAP required)
 
-### Load Balancer (04-load-balancer.sh)
+### Load Balancer (via `04-load-balancer.sh` - Automated Deployment Only)
 - ✅ Network Endpoint Groups (NEGs)
 - ✅ Backend Services
 - ✅ URL Map with API routing (/api/* → backend)
@@ -146,7 +165,14 @@ export REGION="us-central1"
 - ✅ Forwarding Rule
 - ✅ IAP enabled on both backend services
 
-## Post-Deployment Steps
+### Security Hardening (via `05-security-hardening.sh`)
+- ✅ Cloud Run services restricted to specified domain/group/users
+
+### Authentication Configuration (via `06-configure-authentication.sh`)
+- ✅ OAuth Consent Screen configuration (requires manual steps for external users)
+- ✅ IAP enabled on backend services
+
+## Post-Deployment Steps (Automated Deployment)
 
 ### 1. Configure DNS
 
@@ -164,7 +190,7 @@ gcloud compute addresses describe agent-engine-lb-ip \
 
 ### 2. Grant IAP Access
 
-Grant IAP access to users or groups:
+If you used `ACCESS_CONTROL_TYPE=allAuthenticatedUsers` or need to grant access to specific users/groups beyond the initial deployment configuration, use the following commands:
 
 ```bash
 # Grant access to a specific user
@@ -175,7 +201,7 @@ gcloud iap web add-iam-policy-binding \
   --role='roles/iap.httpsResourceAccessor' \
   --project=YOUR_PROJECT_ID
 
-# Grant access to all authenticated users
+# Grant access to all authenticated users (if not already configured)
 gcloud iap web add-iam-policy-binding \
   --resource-type=backend-services \
   --service=agent-engine-api-backend \
@@ -266,33 +292,14 @@ All scripts are **idempotent** - they can be run multiple times safely. They che
 
 ## Cleanup
 
-To remove everything (in reverse order):
+To remove all resources created by the automated deployment, run:
 
 ```bash
-# 4. Delete load balancer
-gcloud compute forwarding-rules delete agent-engine-forwarding-rule --global --project=YOUR_PROJECT_ID
-gcloud compute target-https-proxies delete agent-engine-proxy --global --project=YOUR_PROJECT_ID
-gcloud compute url-maps delete agent-engine-url-map --global --project=YOUR_PROJECT_ID
-gcloud compute backend-services delete agent-engine-api-backend --global --project=YOUR_PROJECT_ID
-gcloud compute backend-services delete agent-engine-ui-backend --global --project=YOUR_PROJECT_ID
-gcloud compute network-endpoint-groups delete agent-engine-api-neg --region=us-central1 --project=YOUR_PROJECT_ID
-gcloud compute network-endpoint-groups delete agent-engine-ui-neg --region=us-central1 --project=YOUR_PROJECT_ID
-
-# 3. Delete Cloud Run services
-gcloud run services delete agent-engine-api --region=us-central1 --project=YOUR_PROJECT_ID
-gcloud run services delete agent-engine-ui --region=us-central1 --project=YOUR_PROJECT_ID
-
-# 1. Delete infrastructure
-gcloud compute addresses delete agent-engine-lb-ip --global --project=YOUR_PROJECT_ID
-gcloud compute ssl-certificates delete agent-engine-ssl-cert --global --project=YOUR_PROJECT_ID
-gcloud vpc-access connectors delete agent-engine-vpc-connector --region=us-central1 --project=YOUR_PROJECT_ID
-gcloud compute networks subnets delete agent-engine-subnet --region=us-central1 --project=YOUR_PROJECT_ID
-gcloud compute networks delete agent-engine-vpc --project=YOUR_PROJECT_ID
+cd web/deploy
+export PROJECT_ID="your-project-id"
+./cleanup.sh
 ```
 
-## References
+To remove resources created by the simple IAP deployment, you will need to manually delete the Cloud Run services and any associated service accounts.
 
-Based on the provisioner project deployment pattern:
-- `provisioner/deploy/01-infrastructure.sh`
-- `provisioner/deploy/04-load-balancer.sh`
 
