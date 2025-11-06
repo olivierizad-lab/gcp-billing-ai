@@ -1,0 +1,30 @@
+{
+  "title": "GCP Billing Agent Documentation",
+  "description": "Complete documentation for the GCP Billing Agent Gen AI solution",
+  "author": "ASL Class",
+  "language": "en",
+  "gitbook": "3.2.3",
+  "root": "./",
+  "structure": {
+    "readme": "README.md",
+    "summary": "SUMMARY.md"
+  },
+  "plugins": [
+    "mermaid-gb3",
+    "ga",
+    "expandable-chapters-small",
+    "anchors",
+    "copy-code-button",
+    "pageview-count"
+  ],
+  "pluginsConfig": {
+    "ga": {
+      "token": ""
+    }
+  },
+  "variables": {
+    "projectName": "GCP Billing Agent",
+    "version": "1.3.0"
+  }
+}
+

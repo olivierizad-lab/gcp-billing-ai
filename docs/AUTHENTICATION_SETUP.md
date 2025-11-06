@@ -1,224 +1,269 @@
-# Authentication Setup for Cloud Run
+# Authentication Setup - Firestore Authentication
 
 ## Overview
 
-Cloud Run services can use several authentication methods. **For Google Workspace/Cloud Identity organizations, domain-based restrictions are the recommended approach** as they work immediately without requiring OAuth consent screen configuration.
+The GCP Billing Agent uses **custom Firestore-based authentication** with JWT tokens. This provides:
+- ✅ **Simple setup** - No OAuth consent screen or IAP configuration needed
+- ✅ **Domain restrictions** - Enforce email domain requirements
+- ✅ **User management** - Sign up, sign in, and account management
+- ✅ **Secure** - Passwords hashed with bcrypt, JWT tokens for sessions
 
-## Recommended Solution: Domain/Group Restrictions ⭐
+## How It Works
 
-**This is the recommended approach for organizations with Google Workspace or Cloud Identity:**
+1. **Sign Up**: User creates account with email/password (domain validated)
+2. **Password Storage**: Passwords hashed with bcrypt and stored in Firestore
+3. **Sign In**: User authenticates, receives JWT token
+4. **API Access**: All API requests include JWT token in Authorization header
+5. **User Isolation**: Query history and data scoped to user_id from token
 
-### Why Domain Restrictions?
+## Architecture
 
-1. ✅ **Works immediately** - No OAuth consent screen configuration needed
-2. ✅ **More secure** - Restrict access to your organization/domain
-3. ✅ **Fully automated** - Can be scripted and deployed automatically
-4. ✅ **No manual steps** - No Console configuration required
-5. ✅ **Better for production** - Enterprise-grade access control
-
-### Implementation
-
-```bash
-# Use the security hardening script with domain restrictions
-make security-harden \
-  PROJECT_ID=your-project \
-  ACCESS_CONTROL_TYPE=domain \
-  ACCESS_CONTROL_VALUE=innovationbox.cloud
+```
+User → Frontend (Sign Up/Login) → Backend API
+                                    ↓
+                              Firestore (users collection)
+                                    ↓
+                              JWT Token Generated
+                                    ↓
+                              Frontend stores token
+                                    ↓
+                        All API requests include token
 ```
 
-Or manually:
+## Configuration
+
+### Domain Restrictions
+
+Currently configured for `@asl.apps-eval.com` emails. To change:
+
+1. **Backend** (`web/backend/auth.py`):
+   ```python
+   REQUIRED_DOMAIN = "your-domain.com"  # Change this
+   ```
+
+2. **Frontend** (`web/frontend/src/Auth.jsx`):
+   ```javascript
+   const REQUIRED_DOMAIN = "your-domain.com";  // Change this
+   ```
+
+3. **Redeploy**:
+   ```bash
+   make deploy-web-simple PROJECT_ID=your-project-id
+   ```
+
+### JWT Secret Key
+
+The JWT secret key is automatically generated and stored in Cloud Run environment variables. It's consistent across deployments to ensure tokens remain valid.
+
+**To view the secret key:**
 ```bash
-# Domain restriction
-gcloud run services add-iam-policy-binding agent-engine-ui \
+gcloud run services describe agent-engine-api \
   --region=us-central1 \
-  --member="domain:innovationbox.cloud" \
-  --role="roles/run.invoker" \
-  --project=PROJECT_ID
+  --project=PROJECT_ID \
+  --format="value(spec.template.spec.containers[0].env)" | grep JWT_SECRET_KEY
+```
 
-gcloud run services add-iam-policy-binding agent-engine-api \
+**To set a custom secret key:**
+```bash
+gcloud run services update agent-engine-api \
   --region=us-central1 \
-  --member="domain:innovationbox.cloud" \
-  --role="roles/run.invoker" \
-  --project=PROJECT_ID
+  --project=PROJECT_ID \
+  --update-env-vars JWT_SECRET_KEY=your-secret-key
 ```
 
-**What this does:**
-- Only users with `@innovationbox.cloud` email addresses can access
-- Users are automatically redirected to Google sign-in
-- No OAuth consent screen configuration needed
-- Works with Google Workspace/Cloud Identity
+⚠️ **Important**: Changing the JWT secret key will invalidate all existing tokens. Users will need to sign in again.
 
-## Alternative Solutions
+## User Management
 
-### Option 1: Manual OAuth Consent Screen Configuration (For External Users)
+### Sign Up
 
-**Steps:**
-1. Go to: https://console.cloud.google.com/apis/credentials/consent?project=YOUR_PROJECT_ID
-2. Configure OAuth consent screen:
-   - **User Type**: 
-     - Internal (if using Google Workspace/Cloud Identity)
-     - External (if allowing any Google account)
-   - **App name**: GCP Billing Agent
-   - **Support email**: your-email@domain.com
-   - **Authorized domains**: your-domain.com (e.g., `asl.apps-eval.com`)
-3. Add scopes (if needed):
-   - `https://www.googleapis.com/auth/userinfo.email`
-   - `https://www.googleapis.com/auth/userinfo.profile`
-4. Save and continue
+Users can create accounts through the UI:
+1. Navigate to the application
+2. Click "Sign Up"
+3. Enter email (must match required domain)
+4. Enter password
+5. Account created in Firestore
 
-**After configuration:**
-- Cloud Run services with `allAuthenticatedUsers` should redirect to Google sign-in
-- Users authenticate with Google accounts
-- Access is granted based on IAM policy
+### Sign In
 
-### Option 2: Use `allUsers` (Less Secure, But Works)
+Users sign in with email and password:
+1. Navigate to the application
+2. Click "Sign In"
+3. Enter credentials
+4. Receive JWT token
+5. Token stored in browser localStorage
 
-For testing, you can use `allUsers` which makes services publicly accessible:
-```bash
-gcloud run services add-iam-policy-binding SERVICE_NAME \
-  --region=REGION \
-  --member="allUsers" \
-  --role="roles/run.invoker" \
-  --project=PROJECT_ID
+### Account Management
+
+Users can:
+- View their profile
+- Delete their account (removes user and all query history)
+
+### Password Requirements
+
+- Minimum length: 8 characters
+- Maximum length: 72 bytes (bcrypt limit)
+- Domain validation: Must be from required domain
+
+## Firestore Structure
+
+### Users Collection
+
+```javascript
+users/{user_id} {
+  user_id: string,
+  email: string,
+  password_hash: string,  // bcrypt hash
+  created_at: timestamp
+}
 ```
 
-**Pros:**
-- Works immediately
-- No authentication required
-- Good for testing
+### Query History Collection
 
-**Cons:**
-- **NOT SECURE** - anyone on internet can access
-- Not suitable for production
-
-### Option 3: Group-Based Restrictions
-
-For fine-grained control, use Cloud Identity groups:
-
-```bash
-# Create group first (in Google Admin Console or Cloud Identity)
-# Then grant access:
-gcloud run services add-iam-policy-binding agent-engine-ui \
-  --region=REGION \
-  --member="group:billing-users@innovationbox.cloud" \
-  --role="roles/run.invoker" \
-  --project=PROJECT_ID
+```javascript
+query_history/{query_id} {
+  user_id: string,  // From JWT token (not client-provided)
+  agent_name: string,
+  message: string,
+  response: string,
+  timestamp: timestamp
+}
 ```
 
-**Pros:**
-- Fine-grained control (specific groups)
-- No OAuth consent screen needed
-- Works with Google Workspace/Cloud Identity
-- Can combine multiple groups
+## Security Considerations
 
-**Cons:**
-- Requires Google Workspace/Cloud Identity groups
-- Groups must be created first
+### Password Security
 
-## Automated Setup Script
+- ✅ Passwords hashed with bcrypt (cost factor 12)
+- ✅ Password length validated (8+ chars, max 72 bytes)
+- ✅ Passwords never stored in plain text
+- ✅ Passwords never logged
 
-We have a script that enables APIs and provides instructions:
-```bash
-make configure-auth PROJECT_ID=your-project
-# or
-cd web/deploy
-./06-configure-authentication.sh
-```
+### Token Security
 
-This script:
-- ✅ Enables required APIs (IAP)
-- ✅ Provides instructions for domain restrictions (recommended)
-- ⚠️  Provides manual steps for OAuth consent screen (if needed)
+- ✅ JWT tokens signed with secret key
+- ✅ Tokens expire after 7 days (configurable)
+- ✅ Tokens stored in localStorage (browser)
+- ✅ Tokens included in Authorization header
 
-## Recommendation by Use Case
+### Domain Restrictions
 
-### For Google Workspace/Cloud Identity Organizations (Recommended)
-**Use domain restrictions** - No OAuth consent screen needed:
-```bash
-make security-harden \
-  PROJECT_ID=your-project \
-  ACCESS_CONTROL_TYPE=domain \
-  ACCESS_CONTROL_VALUE=your-domain.com
-```
+- ✅ Email domain validated on signup
+- ✅ Generic error messages (don't reveal domain)
+- ✅ Backend validation (frontend validation is convenience only)
 
-### For External Users (Any Google Account)
-**Use OAuth consent screen** - Requires manual configuration:
-1. Configure OAuth consent screen in Console
-2. Use `allAuthenticatedUsers` IAM policy
-3. Users authenticate with any Google account
+### Data Isolation
 
-### For Testing (Temporary)
-**Use `allUsers`** - Public access, works immediately:
-```bash
-gcloud run services add-iam-policy-binding agent-engine-ui \
-  --member="allUsers" \
-  --role="roles/run.invoker" \
-  --region=REGION \
-  --project=PROJECT_ID
-```
-⚠️ **NOT SECURE** - Use only for testing!
-
-## Automation Limitations
-
-**Cannot be automated:**
-- OAuth consent screen configuration (requires Console)
-- Setting user type (Internal/External)
-- Adding authorized domains
-- Configuring scopes
-
-**Can be automated:**
-- Enabling APIs
-- Setting IAM policies
-- Deploying services
-- Configuring service accounts
+- ✅ User ID extracted from JWT token (not client-provided)
+- ✅ Query history scoped to authenticated user
+- ✅ No cross-user data access
 
 ## Troubleshooting
 
-### 403 Forbidden with Domain Restrictions
+### Sign Up Fails
 
-**Check:**
-1. You're logged in with the correct domain email
-2. IAM policy has `domain:your-domain.com`
-3. Wait 60 seconds for IAM propagation
-4. Clear browser cache/cookies
-5. Try incognito window
-6. Verify your email domain matches exactly
+**Error: "Please use your ASL class account email address"**
+- Email must be from required domain
+- Check domain configuration in `auth.py` and `Auth.jsx`
 
-**Verify domain:**
+**Error: "Password hashing failed"**
+- Password too long (>72 bytes)
+- Check password length
+- Try a shorter password
+
+### Sign In Fails
+
+**Error: "Invalid email or password"**
+- Check email and password are correct
+- Verify account exists in Firestore
+- Check password hash is valid
+
+**Error: "Invalid or expired token"**
+- Token may have expired (7 days default)
+- JWT secret key may have changed
+- Sign out and sign in again
+
+### Token Issues
+
+**Error: "Invalid or expired token" on API requests**
+- Check token is being sent in Authorization header
+- Verify token hasn't expired
+- Check JWT_SECRET_KEY is consistent
+
+**Solution:**
 ```bash
-gcloud run services get-iam-policy agent-engine-ui \
-  --region=REGION \
-  --project=PROJECT_ID
+# Check token in browser console
+localStorage.getItem('token')
+
+# Sign out and sign in again
 ```
 
-### 403 Forbidden with `allAuthenticatedUsers`
+### Firestore Permissions
 
-**Check:**
-1. OAuth consent screen is configured (if using external users)
-2. IAM policy has `allAuthenticatedUsers`
-3. Wait 60 seconds for IAM propagation
-4. Clear browser cache/cookies
-5. Try incognito window
+**Error: "Missing or insufficient permissions"**
+- Service account needs `roles/datastore.user`
+- Check IAM permissions:
+  ```bash
+  gcloud projects get-iam-policy PROJECT_ID \
+    --flatten="bindings[].members" \
+    --filter="bindings.members:agent-engine-api-sa@PROJECT_ID.iam.gserviceaccount.com"
+  ```
 
-**Solution:**
-- If using Google Workspace/Cloud Identity: **Switch to domain restrictions instead**
-- If using external users: Configure OAuth consent screen manually
+## Testing
 
-### No Redirect to Google Sign-In
+### Test Sign Up
 
-**Possible causes:**
-1. OAuth consent screen not configured (for external users)
-2. Browser sending invalid auth headers
-3. IAM policy not propagated
-4. Project-level OAuth configuration issue
+```bash
+# Use curl or Postman
+curl -X POST https://api-url.run.app/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@asl.apps-eval.com",
+    "password": "testpassword123"
+  }'
+```
 
-**Solution:**
-- **Recommended**: Use domain/group restrictions (works without OAuth consent screen)
-- **Alternative**: Configure OAuth consent screen manually (for external users)
+### Test Sign In
+
+```bash
+curl -X POST https://api-url.run.app/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@asl.apps-eval.com",
+    "password": "testpassword123"
+  }'
+```
+
+### Test Authenticated Request
+
+```bash
+# Use token from sign in response
+curl -X GET https://api-url.run.app/auth/me \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
+
+## Cleanup
+
+### Delete User Account
+
+Users can delete their own account through the UI, or manually:
+
+```bash
+# Using the cleanup script
+make clean-history-user PROJECT_ID=project-id USER_ID=user-id
+```
+
+### Delete All Users
+
+⚠️ **Use with caution!**
+
+```bash
+# Manually delete from Firestore
+# Or use Firestore console
+```
 
 ## References
 
-- [Cloud Run Authentication](https://cloud.google.com/run/docs/authenticating)
-- [OAuth Consent Screen](https://console.cloud.google.com/apis/credentials/consent)
-- [IAM for Cloud Run](https://cloud.google.com/run/docs/securing/managing-access)
-
+- [Firestore Documentation](https://cloud.google.com/firestore/docs)
+- [JWT Documentation](https://jwt.io/)
+- [bcrypt Documentation](https://github.com/pyca/bcrypt/)

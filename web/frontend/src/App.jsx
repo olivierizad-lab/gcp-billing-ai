@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Send, Bot, User, Loader2, AlertCircle, History, Trash2, X } from 'lucide-react'
+import { Send, Bot, User, Loader2, AlertCircle, History, Trash2, X, HelpCircle, BookOpen, ExternalLink } from 'lucide-react'
 import Auth from './Auth'
 import './App.css'
 
@@ -142,8 +142,26 @@ function App() {
   const [showHistory, setShowHistory] = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [sessionId, setSessionId] = useState(null) // Session ID for conversation context
+  const [showHelpMenu, setShowHelpMenu] = useState(false)
   const messagesEndRef = useRef(null)
   const abortControllerRef = useRef(null)
+
+  // GitBook documentation URL - can be set via environment variable or use default
+  const GITBOOK_BASE_URL = import.meta.env.VITE_GITBOOK_URL || 'https://your-org.gitbook.io/gcp-billing-agent'
+  
+  // Documentation links - URLs match GitBook structure from SUMMARY.md
+  // GitBook generates URLs from file names (without .md, lowercase, hyphens for spaces/underscores)
+  const helpLinks = [
+    { title: 'Getting Started', url: `${GITBOOK_BASE_URL}/getting-started/start-here`, icon: BookOpen },
+    { title: 'Architecture', url: `${GITBOOK_BASE_URL}/getting-started/architecture`, icon: BookOpen },
+    { title: 'Deployment Guide', url: `${GITBOOK_BASE_URL}/deployment/automated-deployment`, icon: BookOpen },
+    { title: 'Authentication', url: `${GITBOOK_BASE_URL}/authentication-and-security/authentication-setup`, icon: BookOpen },
+    { title: 'API Documentation', url: `${GITBOOK_BASE_URL}/solution-documentation/gen-ai-solution`, icon: BookOpen },
+    { title: 'Troubleshooting', url: `${GITBOOK_BASE_URL}/deployment/deployment-faq`, icon: BookOpen },
+  ]
+  
+  // If GitBook URL is not set, disable help links
+  const isGitBookConfigured = GITBOOK_BASE_URL !== 'https://your-org.gitbook.io/gcp-billing-agent'
 
   // Check for existing auth token on mount
   useEffect(() => {
@@ -217,6 +235,19 @@ function App() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Close help menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showHelpMenu && !event.target.closest('.help-menu-container')) {
+        setShowHelpMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showHelpMenu])
 
   const loadAgents = async () => {
     if (!API_BASE_URL) {
@@ -586,6 +617,47 @@ function App() {
             <span className="header-subtitle">Agent Engine Chat</span>
           </div>
           <div className="header-right">
+            {/* Help Menu */}
+            <div className="help-menu-container">
+              <button 
+                className="help-button"
+                onClick={() => setShowHelpMenu(!showHelpMenu)}
+                title="Help & Documentation"
+              >
+                <HelpCircle size={20} />
+                <span>Help</span>
+              </button>
+              {showHelpMenu && (
+                <div className="help-dropdown">
+                  <div className="help-dropdown-header">
+                    <BookOpen size={16} />
+                    <span>Documentation</span>
+                  </div>
+                  {!isGitBookConfigured && (
+                    <div className="help-dropdown-notice">
+                      GitBook URL not configured. See docs/GITBOOK_SETUP.md
+                    </div>
+                  )}
+                  <div className="help-dropdown-links">
+                    {helpLinks.map((link, index) => (
+                      <a
+                        key={index}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="help-link"
+                        onClick={() => setShowHelpMenu(false)}
+                        style={!isGitBookConfigured ? { opacity: 0.6, pointerEvents: 'none' } : {}}
+                      >
+                        <link.icon size={16} />
+                        <span>{link.title}</span>
+                        <ExternalLink size={14} className="external-link-icon" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <Auth user={user} onAuthChange={handleAuthChange} />
             <select
               className="agent-selector"

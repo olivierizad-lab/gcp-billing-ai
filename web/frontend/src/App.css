@@ -53,6 +53,100 @@
   gap: 0.75rem;
 }
 
+/* Help Menu */
+.help-menu-container {
+  position: relative;
+}
+
+.help-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.help-button:hover {
+  background-color: var(--bg-secondary);
+  border-color: var(--accent-color);
+}
+
+.help-button:active {
+  transform: scale(0.98);
+}
+
+.help-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  min-width: 240px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.help-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.help-dropdown-notice {
+  padding: 0.75rem 1rem;
+  background-color: rgba(255, 193, 7, 0.1);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.help-dropdown-links {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0;
+}
+
+.help-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+  position: relative;
+}
+
+.help-link:hover {
+  background-color: var(--bg-secondary);
+  color: var(--accent-color);
+}
+
+.help-link .external-link-icon {
+  margin-left: auto;
+  opacity: 0.6;
+}
+
+.help-link:hover .external-link-icon {
+  opacity: 1;
+}
+
 .agent-selector {
   padding: 0.5rem 1rem;
   border: 1px solid var(--border-color);

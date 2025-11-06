@@ -1,233 +1,153 @@
 # Cloud Run Deployment Guide - GCP Billing Agent
 
-Complete guide for deploying the GCP Billing Agent to Google Cloud Run with IAP security.
+Complete guide for deploying the GCP Billing Agent to Google Cloud Run with Firestore authentication.
 
 ## Overview
 
 This guide covers deploying both the backend (FastAPI) and frontend (React) to Cloud Run services with:
-- ✅ **IAP Authentication** - Secure access with Google accounts
+- ✅ **Firestore Authentication** - Custom JWT-based authentication with domain restrictions
 - ✅ **HTTPS** - Automatic SSL/TLS encryption
-- ✅ **Scalable** - Auto-scales based on traffic
+- ✅ **Auto-scaling** - Scales based on traffic
 - ✅ **Cost-effective** - Pay only for what you use
+- ✅ **Auto-discovery** - Agents automatically discovered from Vertex AI Agent Engine
 
 ## Prerequisites
 
 1. **GCP Project** with billing enabled
 2. **gcloud CLI** installed and authenticated
-3. **Required APIs enabled**:
+3. **Required APIs enabled** (automated in deployment scripts):
    - Cloud Run API
    - Cloud Build API
    - IAM API
    - Container Registry API (or Artifact Registry)
+   - Vertex AI API
+   - Firestore API
 
 ## Quick Start
 
-### Option 1: Simple IAP Deployment (No DNS Required)
+### Automated Deployment (Recommended)
 
-Perfect for testing or quick deployments:
+Deploy everything with one command:
+
+```bash
+make deploy-web-simple PROJECT_ID=your-project-id
+```
+
+Or using the deployment script directly:
 
 ```bash
 cd web/deploy
 export PROJECT_ID="your-project-id"
 export REGION="us-central1"
-./deploy-simple-iap.sh
+./deploy-web.sh
 ```
 
 This will:
-- Create service accounts
+- Enable required APIs
+- Create service accounts with proper IAM roles
 - Build and deploy backend to Cloud Run
 - Build and deploy frontend to Cloud Run
-- Enable IAP authentication
-- Provide you with `.run.app` URLs
+- Configure Firestore authentication
+- Auto-discover agents from Vertex AI Agent Engine
 
-### Option 2: Full Deployment with Load Balancer (Custom Domain)
+### What Gets Created
 
-For production with custom domain:
+- ✅ **Service Accounts**:
+  - `agent-engine-api-sa` - Backend service account
+  - `agent-engine-ui-sa` - Frontend service account
+- ✅ **Cloud Run Services**:
+  - `agent-engine-api` - FastAPI backend
+  - `agent-engine-ui` - React frontend
+- ✅ **IAM Permissions**:
+  - Custom role with minimal required permissions
+  - BigQuery, Vertex AI, Firestore access
+- ✅ **Firestore Collections**:
+  - `users` - User accounts
+  - `query_history` - Query history per user
+
+## Deployment Details
+
+### Step 1: Set Environment Variables
 
 ```bash
-cd web/deploy
 export PROJECT_ID="your-project-id"
 export REGION="us-central1"
-export DOMAIN="agent-engine.innovationbox.cloud"
-./deploy-all.sh
 ```
 
-## Step-by-Step Deployment
-
-### 1. Set Environment Variables
-
-```bash
-export PROJECT_ID="qwiklabs-asl-04-8e9f23e85ced"
-export REGION="us-central1"
-export DOMAIN="agent-engine.innovationbox.cloud"  # Optional, for load balancer
-```
-
-### 2. Enable Required APIs
-
-```bash
-gcloud services enable \
-  run.googleapis.com \
-  cloudbuild.googleapis.com \
-  iam.googleapis.com \
-  containerregistry.googleapis.com \
-  --project="$PROJECT_ID"
-```
-
-### 3. Deploy Infrastructure
+### Step 2: Run Automated Deployment
 
 ```bash
 cd web/deploy
-./01-infrastructure.sh
+./deploy-web.sh
 ```
 
-This creates:
-- VPC network (if needed)
-- Service accounts (API and Frontend)
-- VPC connector (optional, for private networking)
+The script will:
+1. Enable required APIs
+2. Create service accounts
+3. Set up IAM permissions
+4. Build Docker images (Cloud Build)
+5. Deploy backend service
+6. Deploy frontend service
+7. Configure environment variables
+8. Set up CORS
 
-### 4. Set Up IAM Permissions
+### Step 3: Access the Application
 
-```bash
-./02-iam-permissions.sh
-```
-
-This grants:
-- BigQuery permissions to API service account
-- Vertex AI permissions to API service account
-- Cloud Run invoker permissions
-
-### 5. Deploy Applications
-
-#### Option A: Simple IAP (Recommended for testing)
-
-```bash
-./03-applications-iap.sh
-```
-
-This deploys with:
-- Native Cloud Run IAP
-- No load balancer needed
-- Uses `.run.app` URLs
-
-#### Option B: With Load Balancer (For custom domain)
-
-```bash
-./03-applications.sh
-./04-load-balancer.sh
-```
-
-This deploys with:
-- Load balancer
-- Custom domain support
-- SSL certificate
-
-### 6. Configure Frontend API URL
-
-After deployment, update the frontend to use the backend URL:
-
-**For Simple IAP:**
-```bash
-# Get the API URL
-API_URL=$(gcloud run services describe agent-engine-api \
-  --region="$REGION" \
-  --project="$PROJECT_ID" \
-  --format="value(status.url)")
-
-# Update frontend environment or rebuild with API URL
-```
-
-**For Load Balancer:**
-```bash
-# Use the load balancer domain
-API_URL="https://agent-engine.innovationbox.cloud/api"
-```
-
-### 7. Grant IAP Access
-
-**Recommended: Use domain restrictions** (works immediately, no OAuth consent screen needed):
-
-```bash
-# Option 1: Domain restriction (Recommended for Google Workspace/Cloud Identity)
-make security-harden \
-  PROJECT_ID="$PROJECT_ID" \
-  ACCESS_CONTROL_TYPE=domain \
-  ACCESS_CONTROL_VALUE=your-domain.com
-
-# Option 2: Manual domain restriction
-gcloud run services add-iam-policy-binding agent-engine-ui \
-  --region="$REGION" \
-  --member="domain:your-domain.com" \
-  --role="roles/run.invoker" \
-  --project="$PROJECT_ID"
-
-gcloud run services add-iam-policy-binding agent-engine-api \
-  --region="$REGION" \
-  --member="domain:your-domain.com" \
-  --role="roles/run.invoker" \
-  --project="$PROJECT_ID"
-```
-
-**Alternative: All authenticated users** (requires OAuth consent screen configuration):
-
-```bash
-# Grant to all authenticated users (requires OAuth consent screen)
-gcloud run services add-iam-policy-binding agent-engine-ui \
-  --region="$REGION" \
-  --member="allAuthenticatedUsers" \
-  --role="roles/run.invoker" \
-  --project="$PROJECT_ID"
-
-# See docs/AUTHENTICATION_SETUP.md for OAuth consent screen configuration
-```
-
-**For testing only (public access):**
-
-```bash
-# ⚠️ NOT SECURE - Use only for testing
-gcloud run services add-iam-policy-binding agent-engine-ui \
-  --region="$REGION" \
-  --member="allUsers" \
-  --role="roles/run.invoker" \
-  --project="$PROJECT_ID"
-```
+After deployment, you'll get URLs like:
+- **API**: `https://agent-engine-api-xxxxx-uc.a.run.app`
+- **UI**: `https://agent-engine-ui-xxxxx-uc.a.run.app`
 
 ## Configuration
 
 ### Backend Configuration
 
-The backend needs:
-- Agent `.env` files with `REASONING_ENGINE_ID`
-- Access to BigQuery and Vertex AI
-- Firestore for history (optional)
-
-**Agent Configuration:**
-The backend reads agent configs from:
-- `bq_agent_mick/.env` - For bq_agent_mick
-- `bq_agent/.env` - For bq_agent
-
-Make sure these files exist in the Docker image (they're copied in the Dockerfile).
+The backend automatically:
+- **Discovers agents** from Vertex AI Agent Engine (no manual configuration needed)
+- **Uses Firestore** for user authentication and query history
+- **Reads environment variables** for project configuration:
+  - `BQ_PROJECT` or `GCP_PROJECT_ID` - GCP project ID
+  - `LOCATION` - Region (default: `us-central1`)
+  - `JWT_SECRET_KEY` - Secret key for JWT tokens (auto-generated)
 
 ### Frontend Configuration
 
-The frontend needs to know the backend API URL. The deployment scripts handle this automatically, but if you need to rebuild manually:
+The frontend:
+- **Connects to backend** via API URL (automatically configured during build)
+- **Uses JWT tokens** for authentication
+- **Supports domain restrictions** (currently `@asl.apps-eval.com`)
 
-1. **Using Cloud Build (Recommended):**
-   ```bash
-   cd web/frontend
-   gcloud builds submit --config=cloudbuild.yaml \
-     --substitutions=_API_URL="https://api-url.run.app" \
-     . --project="$PROJECT_ID"
-   ```
-   
-   The `cloudbuild.yaml` and `Dockerfile` are configured to pass `VITE_API_URL` as a build argument.
+### Agent Discovery
 
-2. **Manual build:**
-   ```bash
-   export VITE_API_URL="https://api-url.run.app"
-   npm run build
-   ```
+Agents are automatically discovered from Vertex AI Agent Engine:
+- Backend scans for all reasoning engines on startup
+- Cache refreshes every 5 minutes
+- Fallback to environment variables if API scan fails
+- No manual agent configuration needed
 
-**Important:** The Dockerfile uses a build argument (`ARG VITE_API_URL`) to ensure the API URL is embedded at build time. This is required because Vite environment variables are compiled into the JavaScript bundle.
+## Authentication
+
+### Sign Up
+
+1. Navigate to the UI URL
+2. Click "Sign Up"
+3. Enter email (must be from `@asl.apps-eval.com`)
+4. Enter password
+5. Account is created in Firestore
+
+### Sign In
+
+1. Navigate to the UI URL
+2. Click "Sign In"
+3. Enter email and password
+4. JWT token is stored in browser
+5. All API requests include the token
+
+### Domain Restrictions
+
+Currently restricted to `@asl.apps-eval.com` emails. To change:
+1. Update `REQUIRED_DOMAIN` in `web/backend/auth.py`
+2. Update `REQUIRED_DOMAIN` in `web/frontend/src/Auth.jsx`
+3. Redeploy services
 
 ## Post-Deployment Steps
 
@@ -246,40 +166,43 @@ gcloud run services describe agent-engine-api \
 ### 2. Test Access
 
 1. Open the UI URL in a browser
-2. You should be redirected to Google login
-3. After authentication, you should see the chat interface
+2. Sign up with an `@asl.apps-eval.com` email
+3. Sign in
+4. Verify agents appear in the dropdown
+5. Test a query
 
-### 3. Configure Agents
+### 3. Verify Agent Discovery
 
-Ensure your agents are deployed and configured:
+Check logs to confirm agents are discovered:
 
 ```bash
-# List agent deployments
-make list-deployments AGENT_NAME=bq_agent_mick
-
-# Verify agent IDs are in .env files
-cat bq_agent_mick/.env
+gcloud run services logs read agent-engine-api \
+  --region="$REGION" \
+  --project="$PROJECT_ID" \
+  --limit=50 | grep -i "agent"
 ```
 
-### 4. Update Frontend API URL
+Look for:
+- `✓ Scanned Agent Engine: Found X reasoning engine(s)`
+- `✓ Loaded X agent(s) from Agent Engine`
 
-The deployment script (`03-applications-iap.sh`) automatically handles this by:
-1. Getting the deployed API URL
-2. Building the frontend with the API URL using Cloud Build substitutions
-3. Configuring CORS on the backend to allow the frontend URL
+### 4. Grant Access (Optional)
 
-If you need to rebuild manually:
+By default, services are publicly accessible. To restrict:
+
 ```bash
-cd web/frontend
-API_URL="https://agent-engine-api-xxxxx.run.app"
-gcloud builds submit --config=cloudbuild.yaml \
-  --substitutions=_API_URL="$API_URL" \
-  . --project="$PROJECT_ID"
-  
-# Then redeploy
-gcloud run deploy agent-engine-ui \
-  --image="gcr.io/$PROJECT_ID/agent-engine-ui:latest" \
+# Restrict to specific domain
+gcloud run services add-iam-policy-binding agent-engine-ui \
   --region="$REGION" \
+  --member="domain:your-domain.com" \
+  --role="roles/run.invoker" \
+  --project="$PROJECT_ID"
+
+# Remove public access
+gcloud run services remove-iam-policy-binding agent-engine-ui \
+  --region="$REGION" \
+  --member="allUsers" \
+  --role="roles/run.invoker" \
   --project="$PROJECT_ID"
 ```
 
@@ -287,19 +210,19 @@ gcloud run deploy agent-engine-ui \
 
 ### Services Not Accessible
 
-**Check IAP is enabled:**
-```bash
-gcloud run services describe agent-engine-ui \
-  --region="$REGION" \
-  --project="$PROJECT_ID" \
-  --format="value(spec.template.spec.serviceAccountName)"
-```
-
 **Check IAM bindings:**
 ```bash
 gcloud run services get-iam-policy agent-engine-ui \
   --region="$REGION" \
   --project="$PROJECT_ID"
+```
+
+**Check service account:**
+```bash
+gcloud run services describe agent-engine-api \
+  --region="$REGION" \
+  --project="$PROJECT_ID" \
+  --format="value(spec.template.spec.serviceAccountName)"
 ```
 
 ### Backend Errors
@@ -319,65 +242,87 @@ gcloud projects get-iam-policy "$PROJECT_ID" \
   --filter="bindings.members:agent-engine-api-sa@$PROJECT_ID.iam.gserviceaccount.com"
 ```
 
-**Firestore Permissions (if history saving fails):**
-If you see "403 Missing or insufficient permissions" when saving query history:
+### Agent Discovery Not Working
+
+**Check Vertex AI permissions:**
+The service account needs `roles/aiplatform.user` or custom role with:
+- `aiplatform.reasoningEngines.list`
+- `aiplatform.reasoningEngines.get`
+- `aiplatform.reasoningEngines.query`
+
+**Check logs for errors:**
 ```bash
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="serviceAccount:agent-engine-api-sa@$PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/datastore.user"
+gcloud run services logs read agent-engine-api \
+  --region="$REGION" \
+  --project="$PROJECT_ID" \
+  --limit=50 | grep -i "agent\|reasoning"
+```
+
+**Verify agents are deployed:**
+```bash
+python3 scripts/list_agent_engines.py \
+  --project="$PROJECT_ID" \
+  --location="$REGION"
 ```
 
 ### Frontend Can't Connect to Backend
 
 **Check CORS configuration:**
 - Backend CORS should allow the frontend URL
-- Check `main.py` CORS settings
-- Verify `CORS_ALLOWED_ORIGINS` environment variable is set on the backend:
-  ```bash
-  gcloud run services describe agent-engine-api \
-    --region="$REGION" \
-    --project="$PROJECT_ID" \
-    --format="value(spec.template.spec.containers[0].env)"
-  ```
+- Verify `CORS_ALLOWED_ORIGINS` includes frontend URL
 
-**Verify API URL is embedded in frontend:**
-- The frontend JavaScript should contain the Cloud Run API URL, not `localhost:8000`
+**Verify API URL is embedded:**
+- The frontend JavaScript should contain the Cloud Run API URL
 - Check browser console for errors
-- Do a hard refresh (`Cmd+Shift+R` or `Ctrl+Shift+R`) to clear cached JavaScript
-- If still seeing localhost, the build may not have embedded the API URL correctly
-- Verify the Dockerfile receives `VITE_API_URL` as a build argument
+- Do a hard refresh (`Cmd+Shift+R` or `Ctrl+Shift+R`)
+
+**Check environment variables:**
+```bash
+gcloud run services describe agent-engine-api \
+  --region="$REGION" \
+  --project="$PROJECT_ID" \
+  --format="value(spec.template.spec.containers[0].env)"
+```
+
+### Authentication Issues
+
+**Check JWT secret key:**
+- Must be the same across deployments
+- Auto-generated and stored in Cloud Run environment variables
+
+**Check Firestore permissions:**
+- Service account needs `roles/datastore.user`
+- Verify Firestore API is enabled
 
 ## Cleanup
 
 To remove all deployed resources:
 
 ```bash
-cd web/deploy
-export PROJECT_ID="your-project-id"
-./cleanup.sh
-```
-
-Or manually:
-```bash
 # Delete Cloud Run services
-gcloud run services delete agent-engine-api --region="$REGION" --project="$PROJECT_ID"
-gcloud run services delete agent-engine-ui --region="$REGION" --project="$PROJECT_ID"
+gcloud run services delete agent-engine-api \
+  --region="$REGION" \
+  --project="$PROJECT_ID"
 
-# Delete service accounts
+gcloud run services delete agent-engine-ui \
+  --region="$REGION" \
+  --project="$PROJECT_ID"
+
+# Delete service accounts (optional)
 gcloud iam service-accounts delete agent-engine-api-sa@$PROJECT_ID.iam.gserviceaccount.com
 gcloud iam service-accounts delete agent-engine-ui-sa@$PROJECT_ID.iam.gserviceaccount.com
 ```
 
 ## Next Steps
 
-- **Configure DNS** (if using load balancer): Point domain to load balancer IP
-- **Grant access**: Configure IAP access policies for your users
 - **Monitor**: Set up Cloud Monitoring and Logging
 - **Scale**: Adjust min/max instances based on traffic
+- **Customize**: Update domain restrictions for your organization
+- **Deploy agents**: Deploy your agents to Vertex AI Agent Engine
 
 ## References
 
-- [GEN_AI_SOLUTION.md](./GEN_AI_SOLUTION.md) - Complete solution documentation
-- [IAP_DEPLOYMENT.md](./IAP_DEPLOYMENT.md) - Detailed IAP deployment guide
-- [DEPLOYMENT_SIMPLE.md](./DEPLOYMENT_SIMPLE.md) - Simple deployment guide
-
+- [architecture.md](./architecture.md) - Complete system architecture
+- [AUTOMATED_DEPLOYMENT.md](./AUTOMATED_DEPLOYMENT.md) - Automated deployment guide
+- [AUTHENTICATION_SETUP.md](./AUTHENTICATION_SETUP.md) - Authentication details
+- [DEPLOYMENT_FAQ.md](./DEPLOYMENT_FAQ.md) - Common questions

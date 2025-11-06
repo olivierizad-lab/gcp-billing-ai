@@ -129,103 +129,68 @@ See [DEPLOYMENT_BACKEND.md](./DEPLOYMENT_BACKEND.md) and [DEPLOYMENT_FRONTEND.md
 
 ## 3. Will the Frontend Be Secure?
 
-**✅ YES - With IAP + Load Balancer Deployment!**
+**✅ YES - With Firestore Authentication!**
 
-We've created deployment scripts that mirror your provisioner project setup, including **IAP (Identity-Aware Proxy)** and **load balancer** for production-grade security.
+The application uses **custom Firestore-based authentication** with JWT tokens, providing secure access control without the complexity of IAP or load balancers.
 
-### Deployment Options
+### Current Security Features
 
-#### Option A: Simple IAP (No DNS Required!) ✅ **RECOMMENDED**
-
-**Fully secure with Cloud Run's native IAP:**
-- ✅ **IAP Authentication** - Users authenticate with Google accounts
+**Fully secure with Firestore authentication:**
+- ✅ **Custom JWT Authentication** - Secure token-based authentication
+- ✅ **Domain Restrictions** - Enforce email domain requirements (e.g., `@asl.apps-eval.com`)
+- ✅ **Password Security** - Passwords hashed with bcrypt
+- ✅ **HTTPS by Default** - Cloud Run provides SSL/TLS
+- ✅ **User Isolation** - Data scoped to authenticated users
 - ✅ **No DNS Required** - Uses Cloud Run's default URLs
 - ✅ **No Load Balancer** - Simpler and cheaper
-- ✅ **HTTPS by Default** - Cloud Run provides SSL
 - ✅ **Easy Deployment** - Single script
 
 **Deploy with:**
 ```bash
-cd web/deploy
-export PROJECT_ID="your-project-id"
-./deploy-simple-iap.sh
+make deploy-web-simple PROJECT_ID=your-project-id
 ```
 
-See [README-SIMPLE.md](./README-SIMPLE.md) for full instructions.
-
-#### Option B: IAP + Load Balancer (Custom Domain)
-
-**For custom domains and path-based routing:**
-- ✅ **IAP Authentication** - Users authenticate with Google accounts
-- ✅ **Load Balancer** - Global HTTPS endpoint
-- ✅ **Custom Domain** - Use your own domain
-- ✅ **Path Routing** - `/api/*` → backend
-- ⚠️ **DNS Required** - Need to configure DNS
-
-**Deploy with:**
+Or using the deployment script:
 ```bash
 cd web/deploy
 export PROJECT_ID="your-project-id"
-export DOMAIN="agent-engine.yourdomain.com"
-./deploy-all.sh
+./deploy-web.sh
 ```
 
-See [README.md](./README.md) for full instructions.
+See [AUTOMATED_DEPLOYMENT.md](./AUTOMATED_DEPLOYMENT.md) for full instructions.
 
-#### Option C: Simple Cloud Run (Development/Testing)
+### Security Features
 
-**⚠️ Current State: NOT SECURE**
+The current deployment includes:
+- ✅ **Firestore Authentication** - Custom JWT-based authentication
+- ✅ **Domain Restrictions** - Email domain validation
+- ✅ **Password Security** - Bcrypt password hashing
+- ✅ **HTTPS** - Automatic SSL/TLS with Cloud Run
+- ✅ **CORS Configuration** - Proper CORS setup for API access
+- ✅ **User Isolation** - Data scoped to authenticated users
+- ✅ **Service Account Isolation** - Separate service accounts with minimal permissions
 
-The basic Cloud Run deployment has **no authentication** and is **not production-ready**.
+### Additional Security Considerations
 
-### Current Security Issues
+For enhanced security, consider:
 
-- ❌ **No authentication** - Anyone can call the API
-- ❌ **Open CORS** - Any website can make requests
-- ❌ **No rate limiting** - Vulnerable to abuse
-- ❌ **No input validation** - Potential injection attacks
-- ✅ **HTTPS** - Automatic with Cloud Run (this is good!)
+#### 1. Rate Limiting
 
-### What You Need for Production
-
-#### 1. Authentication
-
-**Option A: IAM Authentication (Recommended)**
-- Use Google Cloud IAM
-- Users authenticate with Google accounts
-- Automatic token validation
-- Integrated with Cloud Run
-
-**Option B: API Key Authentication**
-- Simple API key in headers
-- Good for service-to-service calls
-- Less secure for user-facing apps
-
-#### 2. CORS Restrictions
-
-```python
-# Only allow your frontend domain
-allow_origins=[
-    "https://your-frontend-domain.com",
-    "http://localhost:3000",  # Dev only
-]
-```
-
-#### 3. Rate Limiting
-
+Implement rate limiting to prevent abuse:
 ```python
 # Limit requests per IP
 @limiter.limit("10/minute")
 ```
 
-#### 4. Input Validation
+#### 2. Input Validation
 
+Validate and sanitize all inputs:
 ```python
 # Validate and sanitize inputs
 message: constr(min_length=1, max_length=10000)
 ```
 
-#### 5. Security Headers
+#### 3. Security Headers
 
 ```nginx
 # In nginx.conf

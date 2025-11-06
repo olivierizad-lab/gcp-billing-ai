@@ -185,7 +185,7 @@ If you updated the Reasoning Engine ID, redeploy the backend:
 ```bash
 cd web/deploy
 export PROJECT_ID="your-project-id"
-./03-applications-iap.sh
+./03-applications.sh
 ```
 
 ### 4. Test Access

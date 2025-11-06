@@ -46,12 +46,17 @@ npm run dev
 
 ### Option 2: Deploy to Cloud Run
 
-Deploy directly to Cloud Run with IAP:
+Deploy directly to Cloud Run with Firestore authentication:
 
+```bash
+make deploy-web-simple PROJECT_ID=your-project-id
+```
+
+Or using the deployment script:
 ```bash
 cd web/deploy
 export PROJECT_ID="your-project-id"
-./deploy-simple-iap.sh
+./deploy-web.sh
 ```
 
 **See [GETTING_STARTED.md](./GETTING_STARTED.md) for detailed instructions!**
