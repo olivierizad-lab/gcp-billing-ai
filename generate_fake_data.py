@@ -57,7 +57,7 @@ def get_random_item_from_distribution(items, cdf_distribution):
     index = min(bisect.bisect_left(cdf_distribution, probability), len(items)-1)
     return {"item": items[index], "probability": cdf_distribution[min(len(items)-1, index+1)]-cdf_distribution[index]}
 
-def generate_fake_billing_data(number_of_projects=NUMBER_OF_PROJECTS):
+def generate_fake_billing_data(number_of_projects=constants.DEFAULT_NUMBER_OF_PROJECTS):
     fake_billing_data = []
     gcp_projects = create_fake_projects(number_of_projects)
     gcp_project_cdf = generate_project_probabilities(number_of_projects=len(gcp_projects))
@@ -71,7 +71,7 @@ def generate_fake_billing_data(number_of_projects=NUMBER_OF_PROJECTS):
         current_gcp_daily_cost = 0
         while current_gcp_daily_cost < gcp_daily_cost:
             gcp_project_prob = get_random_item_from_distribution(gcp_projects, gcp_project_cdf)
-            gcp_service_prob = get_random_item_from_distribution(GCP_SERVICES, gcp_service_cdf)
+            gcp_service_prob = get_random_item_from_distribution(constants.GCP_SERVICES, gcp_service_cdf)
             
             overall_prob = gcp_project_prob["probability"]*gcp_service_prob["probability"]
             gcp_cost_for_item = gcp_daily_cost * overall_prob
