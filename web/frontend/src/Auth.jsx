@@ -285,7 +285,7 @@ function Auth({ user, onAuthChange }) {
           <h2>{mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Reset Password'}</h2>
           <p className="auth-subtitle">
             {mode === 'login' && 'Sign in to access GCP Billing Agent'}
-            {mode === 'signup' && `Create an account (${REQUIRED_DOMAIN} only)`}
+            {mode === 'signup' && 'Create an account (ASL class account required)'}
             {mode === 'forgot' && 'Enter your email to reset your password'}
           </p>
         </div>

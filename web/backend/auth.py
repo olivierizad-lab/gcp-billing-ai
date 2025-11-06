@@ -44,19 +44,19 @@ def get_password_hash(password: str) -> str:
     # Convert to bytes to check actual byte length (not character length)
     password_bytes = password.encode('utf-8')
     
-    # If password exceeds 72 bytes, we need to handle it
-    # For security, we'll reject passwords over 72 bytes rather than truncate
+    # If password exceeds 72 bytes, truncate it (bcrypt limitation)
+    # This is safe because we're hashing, not storing the plain password
     if len(password_bytes) > 72:
-        raise ValueError(f"Password is too long. Maximum is 72 bytes (your password is {len(password_bytes)} bytes). Please use a shorter password.")
+        # Truncate to exactly 72 bytes
+        password = password_bytes[:72].decode('utf-8', errors='ignore')
+        # Re-encode to ensure we have exactly 72 bytes
+        password_bytes = password.encode('utf-8')
+        if len(password_bytes) > 72:
+            # If still over 72, take first 72 bytes directly
+            password = password_bytes[:72].decode('utf-8', errors='ignore')
     
     # Passlib will handle the hashing
-    try:
-        return pwd_context.hash(password)
-    except ValueError as e:
-        # If passlib still complains, provide a better error
-        if "72 bytes" in str(e).lower():
-            raise ValueError("Password is too long. Maximum is 72 bytes. Please use a shorter password.")
-        raise
+    return pwd_context.hash(password)
 
 
 def validate_email_domain(email: str) -> bool:
@@ -81,12 +81,10 @@ def create_user(email: str, password: str) -> Dict:
     if not validate_email_domain(email):
         raise ValueError("Please use your ASL class account email address")
     
-    # Validate password length (bcrypt limit is 72 bytes)
-    password_bytes = password.encode('utf-8')
-    if len(password_bytes) > 72:
-        raise ValueError("Password is too long. Maximum length is 72 bytes (approximately 72 ASCII characters)")
+    # Validate password length
     if len(password) < 6:
         raise ValueError("Password must be at least 6 characters long")
+    # Note: Password length over 72 bytes will be handled in get_password_hash
     
     # Check if user already exists
     users_ref = db.collection(USERS_COLLECTION)
@@ -144,7 +142,11 @@ def authenticate_user(email: str, password: str) -> Optional[Dict]:
     if not user_data.get("active", True):
         return None
     
-    # Verify password
+    # Verify password (handle truncation for passwords over 72 bytes)
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        password = password_bytes[:72].decode('utf-8', errors='ignore')
+    
     if not verify_password(password, user_data.get("password_hash", "")):
         return None
     
@@ -225,4 +227,3 @@ def decode_token(token: str) -> Optional[Dict]:
         return {"user_id": user_id, "email": payload.get("email")}
     except JWTError:
         return None
-
