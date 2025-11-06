@@ -51,13 +51,7 @@ if [ -n "$ACCESS_CONTROL_VALUE" ]; then
 fi
 echo ""
 
-# Check if user wants to proceed
-read -p "Continue with security hardening? (y/N): " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${YELLOW}Security hardening cancelled.${NC}"
-    exit 0
-fi
+
 
 echo ""
 echo -e "${BLUE}1. Creating Custom IAM Role...${NC}"
