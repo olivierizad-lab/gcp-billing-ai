@@ -106,6 +106,7 @@ gcloud run deploy "$API_SERVICE" \
     --image="gcr.io/$PROJECT_ID/$API_SERVICE:latest" \
     --region="$REGION" \
     --service-account="$API_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
+    --ingress=all \
     --min-instances=0 \
     --max-instances=10 \
     --memory=512Mi \
@@ -168,6 +169,7 @@ gcloud run deploy "$UI_SERVICE" \
     --image="gcr.io/$PROJECT_ID/$UI_SERVICE:latest" \
     --region="$REGION" \
     --service-account="$FRONTEND_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
+    --ingress=all \
     --min-instances=0 \
     --max-instances=10 \
     --memory=256Mi \

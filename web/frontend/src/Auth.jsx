@@ -3,7 +3,7 @@ import { LogIn, UserPlus, Mail, Lock, AlertCircle, X, User, Trash2 } from 'lucid
 import './Auth.css'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-const REQUIRED_DOMAIN = 'asl.apps-eval.com'
+const REQUIRED_DOMAIN = 'asl.apps-eval.com' // Internal use only - don't expose to users
 
 function Auth({ user, onAuthChange }) {
   const [mode, setMode] = useState('login') // 'login', 'signup', 'forgot'
@@ -19,7 +19,7 @@ function Auth({ user, onAuthChange }) {
     if (!email.includes('@')) return 'Invalid email format'
     const domain = email.split('@')[1]
     if (domain !== REQUIRED_DOMAIN) {
-      return `Email must be from ${REQUIRED_DOMAIN}`
+      return 'Please use your ASL class account email address'
     }
     return null
   }
