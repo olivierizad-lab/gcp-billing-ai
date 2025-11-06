@@ -31,38 +31,53 @@ echo "  Frontend Service Account: $FRONTEND_SERVICE_ACCOUNT"
 echo "  Cloud Build Service Account: $CLOUD_BUILD_SERVICE_ACCOUNT"
 echo ""
 
-echo -e "${BLUE}1. Granting API Service Account - Project Level Permissions...${NC}"
+echo -e "${BLUE}1. Creating Custom IAM Role (if needed)...${NC}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CUSTOM_ROLE_ID="gcpBillingAgentService"
+CUSTOM_ROLE_NAME="projects/$PROJECT_ID/roles/$CUSTOM_ROLE_ID"
 
-# Project-level permissions for API service account
+if gcloud iam roles describe "$CUSTOM_ROLE_ID" --project="$PROJECT_ID" >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠️  Custom role already exists. Updating...${NC}"
+    gcloud iam roles update "$CUSTOM_ROLE_ID" \
+        --project="$PROJECT_ID" \
+        --file="$SCRIPT_DIR/custom-iam-role.yaml" \
+        --quiet
+else
+    echo -e "${BLUE}Creating custom IAM role...${NC}"
+    gcloud iam roles create "$CUSTOM_ROLE_ID" \
+        --project="$PROJECT_ID" \
+        --file="$SCRIPT_DIR/custom-iam-role.yaml" \
+        --quiet
+fi
+echo -e "${GREEN}✅ Custom IAM role ready${NC}"
+echo ""
+
+echo -e "${BLUE}2. Granting API Service Account - Project Level Permissions...${NC}"
+
+# Remove old role bindings (ignore errors if they don't exist)
+for role in "roles/bigquery.dataViewer" "roles/bigquery.jobUser" "roles/aiplatform.user" "roles/datastore.user"; do
+    gcloud projects remove-iam-policy-binding "$PROJECT_ID" \
+        --member="serviceAccount:$API_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
+        --role="$role" \
+        --quiet 2>/dev/null || true
+done
+
+# Grant custom role to API service account
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="serviceAccount:$API_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
-    --role="roles/bigquery.dataViewer" \
+    --role="$CUSTOM_ROLE_NAME" \
     --quiet
 
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-    --member="serviceAccount:$API_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
-    --role="roles/bigquery.jobUser" \
-    --quiet
-
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-    --member="serviceAccount:$API_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
-    --role="roles/aiplatform.user" \
-    --quiet
-
+# Grant logging role (required for Cloud Run)
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="serviceAccount:$API_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
     --role="roles/logging.logWriter" \
     --quiet
 
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-    --member="serviceAccount:$API_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
-    --role="roles/iam.serviceAccountUser" \
-    --quiet
-
 echo -e "${GREEN}✅ Project-level permissions granted${NC}"
 echo ""
 
-echo -e "${BLUE}2. Granting Frontend Service Account Permissions...${NC}"
+echo -e "${BLUE}3. Granting Frontend Service Account Permissions...${NC}"
 
 # Frontend service account permissions
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
@@ -78,7 +93,7 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
 echo -e "${GREEN}✅ Frontend service account permissions granted${NC}"
 echo ""
 
-echo -e "${BLUE}3. Granting Cloud Build Service Account Permissions...${NC}"
+echo -e "${BLUE}4. Granting Cloud Build Service Account Permissions...${NC}"
 
 # Cloud Build service account permissions (for build logs and deployment)
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \

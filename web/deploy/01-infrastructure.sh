@@ -69,9 +69,31 @@ gcloud services enable \
     iam.googleapis.com \
     cloudbuild.googleapis.com \
     storage.googleapis.com \
-    --project="$PROJECT_ID"
+    firestore.googleapis.com \
+    bigquery.googleapis.com \
+    aiplatform.googleapis.com \
+    logging.googleapis.com \
+    monitoring.googleapis.com \
+    --project="$PROJECT_ID" \
+    --quiet
 
 echo -e "${GREEN}✅ APIs enabled${NC}"
+echo ""
+
+echo -e "${BLUE}1.5. Creating Firestore Database (if needed)...${NC}"
+if gcloud firestore databases describe --project="$PROJECT_ID" >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠️  Firestore database already exists${NC}"
+else
+    echo -e "${BLUE}Creating Firestore database (this may take a few minutes)...${NC}"
+    gcloud firestore databases create \
+        --location="$REGION" \
+        --type=firestore-native \
+        --project="$PROJECT_ID" \
+        --quiet || {
+        echo -e "${YELLOW}⚠️  Firestore creation may have failed or already exists (continuing...)${NC}"
+    }
+    echo -e "${GREEN}✅ Firestore database ready${NC}"
+fi
 echo ""
 
 echo -e "${BLUE}2. Creating VPC Network...${NC}"

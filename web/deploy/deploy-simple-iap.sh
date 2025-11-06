@@ -70,6 +70,9 @@ echo -e "${BLUE}=== Setting up IAM Permissions ===${NC}"
 export PROJECT_ID
 "$SCRIPT_DIR/02-iam-permissions.sh" 2>/dev/null || echo -e "${YELLOW}⚠️  Some IAM permissions may already exist (continuing...)${NC}"
 
+# Note: Security hardening (05-security-hardening.sh) is optional and can be run separately
+# Or use deploy-all-automated.sh for full automation including security
+
 echo ""
 echo -e "${BLUE}=== Deploying Applications with Native IAP ===${NC}"
 export PROJECT_ID REGION

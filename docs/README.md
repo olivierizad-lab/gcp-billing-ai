@@ -26,6 +26,8 @@ This directory contains all project documentation for the GCP Billing Agent Gen 
 ### Specialized Topics
 - **[TESTING_HISTORY.md](./TESTING_HISTORY.md)** - Testing the Firestore history feature
 - **[SECURITY.md](./SECURITY.md)** - Security considerations and best practices
+- **[AUTHENTICATION_SETUP.md](./AUTHENTICATION_SETUP.md)** - Authentication setup guide (recommended: domain restrictions)
+- **[SECURITY_IMPROVEMENTS.md](./SECURITY_IMPROVEMENTS.md)** - Security improvement plan and implementation
 - **[DEPLOYMENT_FAQ.md](./DEPLOYMENT_FAQ.md)** - Common deployment questions and answers
 
 ### Agent Documentation

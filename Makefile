@@ -1,4 +1,4 @@
-.PHONY: help deploy-agent-engine deploy-bq-agent-mick deploy-bq-agent deploy-all-agents deploy-cloud-run deploy-web-cloud-run deploy test-local setup check-prereqs clean lint format clean-all config info create-staging-bucket enable-apis test-adk-cli generate-service grant-bq-permissions list-deployments cleanup-deployments
+.PHONY: help deploy-agent-engine deploy-bq-agent-mick deploy-bq-agent deploy-all-agents deploy-cloud-run deploy-web-cloud-run deploy-all-automated security-harden configure-auth verify-deployment deploy test-local setup check-prereqs clean lint format clean-all config info create-staging-bucket enable-apis test-adk-cli generate-service grant-bq-permissions list-deployments cleanup-deployments
 
 # Default target
 .DEFAULT_GOAL := help
@@ -70,6 +70,10 @@ help: ## Show this help message
 	@echo "  make deploy-agent-engine AGENT_DIR=bq_agent"
 	@echo "  make deploy-cloud-run LOCATION=us-west1"
 	@echo "  make deploy-web-cloud-run PROJECT_ID=my-project"
+	@echo "  make deploy-all-automated PROJECT_ID=my-project ACCESS_CONTROL_TYPE=domain ACCESS_CONTROL_VALUE=asl.apps-eval.com"
+	@echo "  make security-harden PROJECT_ID=my-project ACCESS_CONTROL_TYPE=domain ACCESS_CONTROL_VALUE=asl.apps-eval.com"
+	@echo "  make configure-auth PROJECT_ID=my-project"
+	@echo "  make verify-deployment PROJECT_ID=my-project"
 	@echo "  make test-local"
 
 check-prereqs: ## Check if required tools and dependencies are installed
@@ -247,6 +251,74 @@ deploy-web-cloud-run: check-prereqs ## Deploy web application (backend + fronten
 		else \
 			./deploy-simple-iap.sh; \
 		fi
+
+deploy-all-automated: check-prereqs ## Fully automated deployment: infrastructure, IAM, security, apps. Use ACCESS_CONTROL_TYPE=domain ACCESS_CONTROL_VALUE=asl.apps-eval.com
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		echo "✗ Error: PROJECT_ID must be set"; \
+		echo "  Set it with: export PROJECT_ID=your-project"; \
+		echo "  Example: make deploy-all-automated PROJECT_ID=my-project ACCESS_CONTROL_TYPE=domain ACCESS_CONTROL_VALUE=innovationbox.cloud"; \
+		exit 1; \
+	fi
+	@echo "🚀 Starting fully automated deployment..."
+	@cd web/deploy && \
+		export PROJECT_ID="$(PROJECT_ID)" && \
+		export REGION="$(LOCATION)" && \
+		export DOMAIN="$(DOMAIN)" && \
+		export ACCESS_CONTROL_TYPE="$(ACCESS_CONTROL_TYPE)" && \
+		export ACCESS_CONTROL_VALUE="$(ACCESS_CONTROL_VALUE)" && \
+		if [ "$(SKIP_CONFIRM)" = "1" ] || [ "$(SKIP_CONFIRM)" = "true" ]; then \
+			./deploy-all-automated.sh -y; \
+		else \
+			./deploy-all-automated.sh; \
+		fi
+
+security-harden: check-prereqs ## Apply security hardening: replace allAuthenticatedUsers with domain/group/user restrictions. Use ACCESS_CONTROL_TYPE=domain ACCESS_CONTROL_VALUE=asl.apps-eval.com
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		echo "✗ Error: PROJECT_ID must be set"; \
+		echo "  Set it with: export PROJECT_ID=your-project"; \
+		echo "  Example: make security-harden PROJECT_ID=my-project ACCESS_CONTROL_TYPE=domain ACCESS_CONTROL_VALUE=innovationbox.cloud"; \
+		exit 1; \
+	fi
+	@echo "🔐 Applying security hardening..."
+	@echo "Project: $(PROJECT_ID)"
+	@echo "Region: $(LOCATION)"
+	@echo "Access Control Type: $(ACCESS_CONTROL_TYPE)"
+	@echo "Access Control Value: $(ACCESS_CONTROL_VALUE)"
+	@echo ""
+	@cd web/deploy && \
+		export PROJECT_ID="$(PROJECT_ID)" && \
+		export REGION="$(LOCATION)" && \
+		export ACCESS_CONTROL_TYPE="$(ACCESS_CONTROL_TYPE)" && \
+		export ACCESS_CONTROL_VALUE="$(ACCESS_CONTROL_VALUE)" && \
+		./05-security-hardening.sh
+
+configure-auth: check-prereqs ## Configure authentication (OAuth, IAP APIs). Note: OAuth consent screen requires manual setup.
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		echo "✗ Error: PROJECT_ID must be set"; \
+		echo "  Set it with: export PROJECT_ID=your-project"; \
+		echo "  Example: make configure-auth PROJECT_ID=my-project"; \
+		exit 1; \
+	fi
+	@echo "🔐 Configuring authentication..."
+	@cd web/deploy && \
+		export PROJECT_ID="$(PROJECT_ID)" && \
+		export REGION="$(LOCATION)" && \
+		$(if $(SKIP_CONFIRM),export SKIP_CONFIRM=1 &&) \
+		./06-configure-authentication.sh $(if $(SKIP_CONFIRM),-y,)
+
+verify-deployment: check-prereqs ## Verify deployment: check all components are correctly deployed and configured
+	@if [ -z "$(PROJECT_ID)" ]; then \
+		echo "✗ Error: PROJECT_ID must be set"; \
+		echo "  Set it with: export PROJECT_ID=your-project"; \
+		echo "  Example: make verify-deployment PROJECT_ID=my-project"; \
+		exit 1; \
+	fi
+	@echo "🔍 Verifying deployment..."
+	@cd web/deploy && \
+		export PROJECT_ID="$(PROJECT_ID)" && \
+		export REGION="$(LOCATION)" && \
+		export DOMAIN="$(DOMAIN)" && \
+		./verify-deployment.sh
 
 generate-service: ## Generate Cloud Run service.py file from template
 	@echo "Generating $(AGENT_DIR)/service.py..."

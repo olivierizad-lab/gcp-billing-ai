@@ -144,20 +144,49 @@ API_URL="https://agent-engine.innovationbox.cloud/api"
 
 ### 7. Grant IAP Access
 
-Grant access to users or groups:
+**Recommended: Use domain restrictions** (works immediately, no OAuth consent screen needed):
 
 ```bash
-# Grant to all authenticated users
+# Option 1: Domain restriction (Recommended for Google Workspace/Cloud Identity)
+make security-harden \
+  PROJECT_ID="$PROJECT_ID" \
+  ACCESS_CONTROL_TYPE=domain \
+  ACCESS_CONTROL_VALUE=your-domain.com
+
+# Option 2: Manual domain restriction
+gcloud run services add-iam-policy-binding agent-engine-ui \
+  --region="$REGION" \
+  --member="domain:your-domain.com" \
+  --role="roles/run.invoker" \
+  --project="$PROJECT_ID"
+
+gcloud run services add-iam-policy-binding agent-engine-api \
+  --region="$REGION" \
+  --member="domain:your-domain.com" \
+  --role="roles/run.invoker" \
+  --project="$PROJECT_ID"
+```
+
+**Alternative: All authenticated users** (requires OAuth consent screen configuration):
+
+```bash
+# Grant to all authenticated users (requires OAuth consent screen)
 gcloud run services add-iam-policy-binding agent-engine-ui \
   --region="$REGION" \
   --member="allAuthenticatedUsers" \
   --role="roles/run.invoker" \
   --project="$PROJECT_ID"
 
-# Or grant to specific users
+# See docs/AUTHENTICATION_SETUP.md for OAuth consent screen configuration
+```
+
+**For testing only (public access):**
+
+```bash
+# ⚠️ NOT SECURE - Use only for testing
 gcloud run services add-iam-policy-binding agent-engine-ui \
   --region="$REGION" \
-  --member="user:user@example.com" \
+  --member="allUsers" \
   --role="roles/run.invoker" \
   --project="$PROJECT_ID"
 ```

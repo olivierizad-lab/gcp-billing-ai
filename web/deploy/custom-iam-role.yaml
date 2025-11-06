@@ -1,0 +1,34 @@
+# Custom IAM Role for GCP Billing Agent Service Account
+# This role follows the principle of least privilege
+# Only includes permissions actually needed by the backend services
+
+title: "GCP Billing Agent Service Role"
+description: "Custom role with minimal permissions for GCP Billing Agent backend services (Cloud Run, Agent Engine, Firestore, BigQuery)"
+stage: "GA"
+
+includedPermissions:
+  # BigQuery - Read-only access to billing data
+  - bigquery.datasets.get
+  - bigquery.jobs.create
+  - bigquery.jobs.get
+  - bigquery.tables.get
+  - bigquery.tables.getData
+  - bigquery.tables.list
+  
+  # Vertex AI - Query reasoning engines
+  - aiplatform.reasoningEngines.query
+  - aiplatform.reasoningEngines.get
+  
+  # Firestore - Full CRUD for query history
+  - datastore.entities.create
+  - datastore.entities.get
+  - datastore.entities.list
+  - datastore.entities.update
+  - datastore.entities.delete
+  
+  # Logging - Write logs
+  - logging.logEntries.create
+  
+  # Service Account - For impersonation if needed
+  - iam.serviceAccounts.get
+
