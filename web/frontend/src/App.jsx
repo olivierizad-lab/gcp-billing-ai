@@ -10,6 +10,103 @@ if (!API_BASE_URL) {
   throw new Error('VITE_API_URL environment variable is required')
 }
 
+// Format message content - detect and format tables with fixed-width columns
+function formatMessageContent(content) {
+  if (!content) return content
+  
+  // Split content into lines
+  const lines = content.split('\n')
+  const formattedLines = []
+  let inTable = false
+  let tableRows = []
+  let columnWidths = []
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    
+    // Detect table rows (lines with pipes)
+    const isTableRow = line.includes('|') && line.trim().startsWith('|') && line.trim().endsWith('|')
+    const isSeparator = /^\|[\s\-:]+\|/.test(line.trim())
+    
+    if (isTableRow || isSeparator) {
+      if (!inTable) {
+        inTable = true
+        tableRows = []
+        columnWidths = []
+      }
+      
+      if (!isSeparator) {
+        // Extract cells
+        const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell.length > 0)
+        tableRows.push(cells)
+        
+        // Update column widths
+        cells.forEach((cell, colIndex) => {
+          if (!columnWidths[colIndex] || cell.length > columnWidths[colIndex]) {
+            columnWidths[colIndex] = cell.length
+          }
+        })
+      }
+    } else {
+      // Not a table row - process any accumulated table
+      if (inTable && tableRows.length > 0) {
+        formattedLines.push(formatTable(tableRows, columnWidths))
+        tableRows = []
+        columnWidths = []
+        inTable = false
+      }
+      formattedLines.push(line)
+    }
+  }
+  
+  // Process any remaining table
+  if (inTable && tableRows.length > 0) {
+    formattedLines.push(formatTable(tableRows, columnWidths))
+  }
+  
+  return formattedLines.join('\n')
+}
+
+// Format table with fixed-width columns
+function formatTable(rows, columnWidths) {
+  if (rows.length === 0) return ''
+  
+  // Ensure we have column widths for all columns
+  const maxCols = Math.max(...rows.map(row => row.length), columnWidths.length)
+  
+  // Recalculate column widths to ensure all columns are covered
+  const finalColumnWidths = []
+  for (let i = 0; i < maxCols; i++) {
+    const width = rows.reduce((max, row) => {
+      const cellLength = (row[i] || '').toString().length
+      return Math.max(max, cellLength)
+    }, columnWidths[i] || 0)
+    finalColumnWidths[i] = Math.max(width, 1) // Minimum width of 1
+  }
+  
+  // Pad each column to its width with proper spacing
+  const formattedRows = rows.map(row => {
+    const paddedCells = finalColumnWidths.map((width, colIndex) => {
+      const cell = (row[colIndex] || '').toString()
+      return cell.padEnd(width, ' ')
+    })
+    return `| ${paddedCells.join(' | ')} |`
+  })
+  
+  // Create separator row with proper dashes
+  const separatorParts = finalColumnWidths.map(width => {
+    return '-'.repeat(width + 2)
+  })
+  const separator = `|${separatorParts.join('|')}|`
+  
+  // Insert separator after header (first row) if we have multiple rows
+  if (formattedRows.length > 1) {
+    formattedRows.splice(1, 0, separator)
+  }
+  
+  return formattedRows.join('\n')
+}
+
 function App() {
   const [user, setUser] = useState(null)
   const [userToken, setUserToken] = useState(null)
@@ -616,7 +713,7 @@ function App() {
                 </div>
                 <div className="message-content">
                   <div className="message-text">
-                    {message.content || (message.role === 'assistant' && isLoading ? (
+                    {formatMessageContent(message.content) || (message.role === 'assistant' && isLoading ? (
                       <Loader2 size={16} className="spinner" />
                     ) : '')}
                   </div>
