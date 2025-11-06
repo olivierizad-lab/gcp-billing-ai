@@ -8,8 +8,9 @@ It handles authentication and streams responses back to the frontend.
 
 import os
 import json
+import time
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -91,60 +92,108 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
 PROJECT_ID = os.getenv("BQ_PROJECT") or os.getenv("GCP_PROJECT_ID", "qwiklabs-asl-04-8e9f23e85ced")
 LOCATION = os.getenv("LOCATION", "us-central1")
 
-# Load agent-specific .env files and extract REASONING_ENGINE_IDs
-# For Cloud Run deployment, use environment variables instead of .env files
-def load_agent_configs():
-    """Load agent configurations from .env files or environment variables."""
+# Cache for agent configurations (to avoid API calls on every request)
+_agent_configs_cache: Optional[Dict] = None
+_agent_configs_cache_time: float = 0
+AGENT_CONFIGS_CACHE_TTL = 300  # Cache for 5 minutes
+
+
+def scan_agent_engine_reasoning_engines(project_id: str, location: str) -> Dict:
+    """Scan Vertex AI Agent Engine for all deployed reasoning engines."""
     configs = {}
     
-    # bq_agent_mick - try environment variable first (Cloud Run), then .env file (local dev)
-    mick_id = os.getenv("BQ_AGENT_MICK_REASONING_ENGINE_ID", "")
+    try:
+        # Use Google Auth to get credentials
+        credentials, _ = google.auth.default()
+        if not credentials.valid:
+            credentials.refresh(Request())
+        
+        # Build API endpoint
+        base_url = f"https://{location}-aiplatform.googleapis.com/v1"
+        endpoint = f"{base_url}/projects/{project_id}/locations/{location}/reasoningEngines"
+        
+        headers = {
+            "Authorization": f"Bearer {credentials.token}",
+            "Content-Type": "application/json",
+        }
+        
+        # Make API call
+        response = requests.get(endpoint, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            engines = data.get('reasoningEngines', [])
+            
+            # Convert reasoning engines to agent configs
+            for engine in engines:
+                display_name = engine.get('displayName', '')
+                name = engine.get('name', '')
+                description = engine.get('description', '')
+                
+                # Extract reasoning engine ID from name (format: projects/.../locations/.../reasoningEngines/ID)
+                engine_id = name.split('/')[-1] if '/' in name else name
+                
+                # Create a sanitized key from display name (lowercase, replace spaces with underscores)
+                # Fallback to engine_id if display_name is empty
+                key = display_name.lower().replace(' ', '_').replace('-', '_') if display_name else f"agent_{engine_id}"
+                # Remove special characters
+                key = ''.join(c for c in key if c.isalnum() or c == '_')
+                # Ensure it's not empty
+                if not key:
+                    key = f"agent_{engine_id}"
+                
+                configs[key] = {
+                    "name": key,
+                    "display_name": display_name or f"Agent {engine_id}",
+                    "description": description or "Vertex AI Agent Engine agent",
+                    "reasoning_engine_id": engine_id,
+                }
+            
+            print(f"✓ Scanned Agent Engine: Found {len(configs)} reasoning engine(s)")
+        else:
+            print(f"⚠ Failed to scan Agent Engine: HTTP {response.status_code}")
+            if response.status_code == 403:
+                print("  Permission denied - check IAM permissions for Vertex AI API")
+            elif response.status_code == 404:
+                print("  API endpoint not found - check location and project ID")
     
-    # Fallback to .env file if environment variable not set (for local development)
-    # In Docker/Cloud Run, these files won't exist, so skip this
-    if not mick_id:
-        try:
-            agent_mick_env = project_root / "bq_agent_mick" / ".env"
-            if agent_mick_env.exists():
-                from dotenv import dotenv_values
-                mick_env_vars = dotenv_values(agent_mick_env)
-                mick_id = mick_env_vars.get("REASONING_ENGINE_ID", "")
-        except (OSError, AttributeError):
-            # Path doesn't exist (e.g., in Docker), skip .env file loading
-            pass
-    
-    configs["bq_agent_mick"] = {
-        "name": "bq_agent_mick",
-        "display_name": "BigQuery Agent (Mick)",
-        "description": "BigQuery billing data analysis agent",
-        "reasoning_engine_id": mick_id,
-    }
-    
-    # bq_agent - try environment variable first (Cloud Run), then .env file (local dev)
-    agent_id = os.getenv("BQ_AGENT_REASONING_ENGINE_ID", "")
-    
-    # Fallback to .env file if environment variable not set (for local development)
-    # In Docker/Cloud Run, these files won't exist, so skip this
-    if not agent_id:
-        try:
-            agent_env = project_root / "bq_agent" / ".env"
-            if agent_env.exists():
-                from dotenv import dotenv_values
-                agent_env_vars = dotenv_values(agent_env)
-                agent_id = agent_env_vars.get("REASONING_ENGINE_ID", "")
-        except (OSError, AttributeError):
-            # Path doesn't exist (e.g., in Docker), skip .env file loading
-            pass
-    
-    configs["bq_agent"] = {
-        "name": "bq_agent",
-        "display_name": "BigQuery Agent",
-        "description": "BigQuery data analysis agent",
-        "reasoning_engine_id": agent_id,
-    }
+    except Exception as e:
+        print(f"⚠ Error scanning Agent Engine: {e}")
+        print("  No agents will be available until the API is accessible")
     
     return configs
 
+def load_agent_configs(force_refresh: bool = False) -> Dict:
+    """
+    Load agent configurations by scanning Agent Engine for all deployed reasoning engines.
+    
+    Uses caching to avoid API calls on every request. Cache TTL is 5 minutes.
+    Returns empty dict if no agents are found or if scanning fails.
+    """
+    global _agent_configs_cache, _agent_configs_cache_time
+    
+    current_time = time.time()
+    
+    # Check cache
+    if not force_refresh and _agent_configs_cache is not None:
+        if current_time - _agent_configs_cache_time < AGENT_CONFIGS_CACHE_TTL:
+            return _agent_configs_cache
+    
+    # Scan Agent Engine for all reasoning engines
+    scanned_configs = scan_agent_engine_reasoning_engines(PROJECT_ID, LOCATION)
+    
+    # Update cache
+    _agent_configs_cache = scanned_configs
+    _agent_configs_cache_time = current_time
+    
+    if scanned_configs:
+        print(f"✓ Loaded {len(scanned_configs)} agent(s) from Agent Engine")
+    else:
+        print("⚠ No agents found in Agent Engine")
+    
+    return scanned_configs
+
+# Load initial agent configs
 AGENT_CONFIGS = load_agent_configs()
 
 
@@ -218,17 +267,18 @@ def query_agent_stream(agent_name: str, message: str, user_id: str):
     
     Yields chunks of the response as they arrive.
     """
-    # Get agent configuration
-    if agent_name not in AGENT_CONFIGS:
+    # Get agent configuration (use cached configs)
+    configs = load_agent_configs()
+    if agent_name not in configs:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
     
-    agent_config = AGENT_CONFIGS[agent_name]
+    agent_config = configs[agent_name]
     reasoning_engine_id = agent_config["reasoning_engine_id"]
     
     if not reasoning_engine_id:
         raise HTTPException(
             status_code=400,
-            detail=f"Agent '{agent_name}' is not configured. Please set BQ_AGENT_MICK_REASONING_ENGINE_ID or BQ_AGENT_REASONING_ENGINE_ID environment variable."
+            detail=f"Agent '{agent_name}' is not configured. Please deploy the agent to Vertex AI Agent Engine."
         )
     
     # Get credentials
@@ -313,17 +363,18 @@ def query_agent_stream_with_save(agent_name: str, message: str, user_id: str, se
     response_text = ""
     
     try:
-        # Get agent configuration
-        if agent_name not in AGENT_CONFIGS:
+        # Get agent configuration (use cached configs)
+        configs = load_agent_configs()
+        if agent_name not in configs:
             error_msg = f'Agent \'{agent_name}\' not found'
             yield f"data: {json.dumps({'error': error_msg, 'done': True})}\n\n"
             return
         
-        agent_config = AGENT_CONFIGS[agent_name]
+        agent_config = configs[agent_name]
         reasoning_engine_id = agent_config["reasoning_engine_id"]
         
         if not reasoning_engine_id:
-            error_msg = f'Agent \'{agent_name}\' is not configured. Please set BQ_AGENT_MICK_REASONING_ENGINE_ID or BQ_AGENT_REASONING_ENGINE_ID environment variable.'
+            error_msg = f'Agent \'{agent_name}\' is not configured. Please deploy the agent to Vertex AI Agent Engine.'
             yield f"data: {json.dumps({'error': error_msg, 'done': True})}\n\n"
             return
         
@@ -625,12 +676,21 @@ async def delete_current_user(user_token: dict = Depends(verify_token)):
 
 
 @app.get("/agents", response_model=List[AgentInfo])
-async def list_agents():
-    """List all available agents."""
+async def list_agents(force_refresh: bool = False):
+    """
+    List all available agents from Vertex AI Agent Engine.
+    
+    Automatically scans all deployed reasoning engines. Results are cached for 5 minutes.
+    Use ?force_refresh=true to force a fresh scan.
+    """
     # Note: Agents list is public (no auth required) - agent info is not sensitive
     # This allows the frontend to load agents before authentication
+    
+    # Refresh agent configs if requested or cache expired
+    configs = load_agent_configs(force_refresh=force_refresh)
+    
     agents = []
-    for agent_name, config in AGENT_CONFIGS.items():
+    for agent_name, config in configs.items():
         agents.append(AgentInfo(
             name=config["name"],
             display_name=config["display_name"],
@@ -638,6 +698,10 @@ async def list_agents():
             reasoning_engine_id=config["reasoning_engine_id"],
             is_available=bool(config["reasoning_engine_id"])
         ))
+    
+    # Sort by display name for consistent ordering
+    agents.sort(key=lambda x: x.display_name)
+    
     return agents
 
 
@@ -734,7 +798,9 @@ async def debug_agents():
         "agents": {}
     }
     
-    for agent_name, config in AGENT_CONFIGS.items():
+    # Get current agent configs (may be cached)
+    configs = load_agent_configs()
+    for agent_name, config in configs.items():
         reasoning_engine_id = config["reasoning_engine_id"]
         endpoint_base = f"https://{LOCATION}-aiplatform.googleapis.com/v1"
         endpoint = f"{endpoint_base}/projects/{PROJECT_ID}/locations/{LOCATION}/reasoningEngines/{reasoning_engine_id}:streamQuery"

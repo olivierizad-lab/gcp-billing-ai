@@ -65,40 +65,10 @@ fi
 echo -e "${GREEN}✅ Frontend UI built successfully${NC}"
 echo ""
 
-echo -e "${BLUE}3. Getting Reasoning Engine IDs...${NC}"
-# Try to get reasoning engine ID from bq_agent_mick/.env or prompt user
-BQ_AGENT_MICK_ID=""
-if [ -f "$(dirname "$0")/../../bq_agent_mick/.env" ]; then
-    BQ_AGENT_MICK_ID=$(grep "REASONING_ENGINE_ID" "$(dirname "$0")/../../bq_agent_mick/.env" | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
-fi
-
-if [ -z "$BQ_AGENT_MICK_ID" ]; then
-    echo -e "${YELLOW}⚠️  REASONING_ENGINE_ID not found in bq_agent_mick/.env${NC}"
-    echo -e "${YELLOW}   Please enter the Reasoning Engine ID for bq_agent_mick:${NC}"
-    read -p "Reasoning Engine ID: " BQ_AGENT_MICK_ID
-fi
-
-if [ -z "$BQ_AGENT_MICK_ID" ]; then
-    echo -e "${RED}❌ BQ_AGENT_MICK_REASONING_ENGINE_ID is required${NC}"
-    exit 1
-fi
-
-# Try to get reasoning engine ID from bq_agent/.env
-BQ_AGENT_ID=""
-if [ -f "$(dirname "$0")/../../bq_agent/.env" ]; then
-    BQ_AGENT_ID=$(grep "REASONING_ENGINE_ID" "$(dirname "$0")/../../bq_agent/.env" | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
-fi
-
-if [ -z "$BQ_AGENT_ID" ]; then
-    echo -e "${YELLOW}⚠️  REASONING_ENGINE_ID not found in bq_agent/.env${NC}"
-    echo -e "${YELLOW}   bq_agent will not be available (optional)${NC}"
-fi
-
-echo -e "${GREEN}✅ Using Reasoning Engine IDs:${NC}"
-echo -e "${GREEN}   bq_agent_mick: $BQ_AGENT_MICK_ID${NC}"
-if [ -n "$BQ_AGENT_ID" ]; then
-    echo -e "${GREEN}   bq_agent: $BQ_AGENT_ID${NC}"
-fi
+echo -e "${BLUE}3. Preparing deployment...${NC}"
+echo -e "${GREEN}✅ Agent Engine auto-discovery enabled${NC}"
+echo -e "${YELLOW}   The backend will automatically discover all deployed agents from Agent Engine${NC}"
+echo -e "${YELLOW}   No reasoning engine IDs need to be configured!${NC}"
 echo ""
 
 echo -e "${BLUE}4. Deploying API Service...${NC}"
@@ -125,10 +95,8 @@ else
 fi
 
 # Prepare backend environment variables
-BACKEND_ENV_VARS="BQ_AGENT_MICK_REASONING_ENGINE_ID=$BQ_AGENT_MICK_ID,BQ_PROJECT=$PROJECT_ID,LOCATION=$REGION,JWT_SECRET_KEY=$JWT_SECRET_KEY"
-if [ -n "$BQ_AGENT_ID" ]; then
-    BACKEND_ENV_VARS="$BACKEND_ENV_VARS,BQ_AGENT_REASONING_ENGINE_ID=$BQ_AGENT_ID"
-fi
+# Note: No reasoning engine IDs needed - backend scans Agent Engine automatically!
+BACKEND_ENV_VARS="BQ_PROJECT=$PROJECT_ID,LOCATION=$REGION,JWT_SECRET_KEY=$JWT_SECRET_KEY"
 
 # First, try to clear VPC connector if service exists (ignore errors)
 echo -e "${YELLOW}Clearing VPC connector from existing service (if any)...${NC}"
@@ -257,6 +225,8 @@ echo -e "${YELLOW}⚠️  IMPORTANT:${NC}"
 echo "  1. Users can sign up with @asl.apps-eval.com email addresses"
 echo "  2. Frontend API_URL is already configured: $API_URL"
 echo "  3. Authentication uses Firestore (no additional setup needed)"
+echo "  4. Agents are automatically discovered from Agent Engine - no configuration needed!"
+echo "  5. When you deploy new agents to Agent Engine, they'll appear automatically"
 echo ""
 echo "     # Grant access to specific user"
 echo "     gcloud run services add-iam-policy-binding $API_SERVICE \\"

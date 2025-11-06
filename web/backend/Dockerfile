@@ -14,12 +14,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY main.py history.py auth.py ./
 
-# Note: Agent .env files are not copied - use environment variables instead
+# Note: Reasoning engine IDs are automatically discovered from Agent Engine
+# No environment variables needed for agent configuration!
 # Cloud Run environment variables should be set for:
-# - BQ_AGENT_MICK_REASONING_ENGINE_ID
-# - BQ_AGENT_REASONING_ENGINE_ID
 # - BQ_PROJECT or GCP_PROJECT_ID
 # - LOCATION
+# - JWT_SECRET_KEY (for authentication)
 
 # Cloud Run expects PORT environment variable
 ENV PORT=8080
