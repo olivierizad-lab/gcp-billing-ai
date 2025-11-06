@@ -229,13 +229,13 @@ deploy-cloud-run: check-prereqs ## Deploy agent as Cloud Run service (requires s
 		--allow-unauthenticated \
 		--set-env-vars BQ_PROJECT=$(PROJECT_ID),BQ_DATASET=$(shell grep BQ_DATASET $(AGENT_DIR)/.env 2>/dev/null | cut -d'=' -f2 || echo ""),BQ_LOCATION=$(shell grep BQ_LOCATION $(AGENT_DIR)/.env 2>/dev/null | cut -d'=' -f2 || echo "US")
 
-deploy-web-simple: check-prereqs ## Deploy web application (backend + frontend) to Cloud Run with Firestore authentication. Use SKIP_CONFIRM=1 to skip confirmation prompt.
+deploy-web-simple: check-prereqs ## Deploy web application to Cloud Run with Firestore authentication. Use SKIP_CONFIRM=1 to skip confirmation prompt.
 	@if [ -z "$(PROJECT_ID)" ]; then \
 		PROJECT_ID=$$(gcloud config get-value project 2>/dev/null || echo ""); \
 		if [ -z "$$PROJECT_ID" ]; then \
 			echo "✗ Error: PROJECT_ID must be set"; \
 			echo "  Set it with: export PROJECT_ID=your-project"; \
-			echo "  Or override: make deploy-web-cloud-run PROJECT_ID=your-project"; \
+			echo "  Or override: make deploy-web-simple PROJECT_ID=your-project"; \
 			exit 1; \
 		fi; \
 	fi
@@ -247,15 +247,15 @@ deploy-web-simple: check-prereqs ## Deploy web application (backend + frontend) 
 		export PROJECT_ID="$(PROJECT_ID)" && \
 		export REGION="$(LOCATION)" && \
 		if [ "$(SKIP_CONFIRM)" = "1" ] || [ "$(SKIP_CONFIRM)" = "true" ]; then \
-			./deploy-simple-iap.sh -y; \
+			./deploy-web.sh -y; \
 		else \
-			./deploy-simple-iap.sh; \
+			./deploy-web.sh; \
 		fi
 
 
 deploy-web: ## Show help for web deployments
 	@echo "$(COLOR_BOLD)Web Deployment Options:$(COLOR_RESET)"
-	@echo "  $(COLOR_CYAN)make deploy-web-simple$(COLOR_RESET)    - Deploy to Cloud Run with Firestore authentication (simple, no load balancer)"
+	@echo "  $(COLOR_CYAN)make deploy-web-simple$(COLOR_RESET)    - Deploy web app to Cloud Run with Firestore authentication"
 
 deploy-web-automated: check-prereqs ## Fully automated deployment: infrastructure, IAM, security, apps. Use ACCESS_CONTROL_TYPE=domain ACCESS_CONTROL_VALUE=asl.apps-eval.com
 	@if [ -z "$(PROJECT_ID)" ]; then \

@@ -151,15 +151,68 @@ def scan_agent_engine_reasoning_engines(project_id: str, location: str) -> Dict:
             
             print(f"✓ Scanned Agent Engine: Found {len(configs)} reasoning engine(s)")
         else:
+            error_detail = response.text[:500] if hasattr(response, 'text') else str(response)
             print(f"⚠ Failed to scan Agent Engine: HTTP {response.status_code}")
+            print(f"  Response: {error_detail}")
             if response.status_code == 403:
                 print("  Permission denied - check IAM permissions for Vertex AI API")
+                print(f"  Service account needs 'roles/aiplatform.user' or 'aiplatform.reasoningEngines.list' permission")
             elif response.status_code == 404:
                 print("  API endpoint not found - check location and project ID")
     
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
         print(f"⚠ Error scanning Agent Engine: {e}")
+        print(f"  Traceback: {error_trace[:500]}")
         print("  No agents will be available until the API is accessible")
+    
+    return configs
+
+def load_agent_configs_from_env_fallback():
+    """Fallback: Load agent configs from environment variables if scanning fails."""
+    configs = {}
+    
+    # Check for environment variables (Cloud Run) or .env files (local dev)
+    # bq_agent_mick
+    mick_id = os.getenv("BQ_AGENT_MICK_REASONING_ENGINE_ID", "")
+    if not mick_id:
+        try:
+            agent_mick_env = project_root / "bq_agent_mick" / ".env"
+            if agent_mick_env.exists():
+                from dotenv import dotenv_values
+                mick_env_vars = dotenv_values(agent_mick_env)
+                mick_id = mick_env_vars.get("REASONING_ENGINE_ID", "")
+        except (OSError, AttributeError):
+            pass
+    
+    if mick_id:
+        configs["bq_agent_mick"] = {
+            "name": "bq_agent_mick",
+            "display_name": "BigQuery Agent (Mick)",
+            "description": "BigQuery billing data analysis agent",
+            "reasoning_engine_id": mick_id,
+        }
+    
+    # bq_agent
+    agent_id = os.getenv("BQ_AGENT_REASONING_ENGINE_ID", "")
+    if not agent_id:
+        try:
+            agent_env = project_root / "bq_agent" / ".env"
+            if agent_env.exists():
+                from dotenv import dotenv_values
+                agent_env_vars = dotenv_values(agent_env)
+                agent_id = agent_env_vars.get("REASONING_ENGINE_ID", "")
+        except (OSError, AttributeError):
+            pass
+    
+    if agent_id:
+        configs["bq_agent"] = {
+            "name": "bq_agent",
+            "display_name": "BigQuery Agent",
+            "description": "BigQuery data analysis agent",
+            "reasoning_engine_id": agent_id,
+        }
     
     return configs
 
@@ -168,7 +221,7 @@ def load_agent_configs(force_refresh: bool = False) -> Dict:
     Load agent configurations by scanning Agent Engine for all deployed reasoning engines.
     
     Uses caching to avoid API calls on every request. Cache TTL is 5 minutes.
-    Returns empty dict if no agents are found or if scanning fails.
+    Falls back to environment variables if scanning fails (for backward compatibility).
     """
     global _agent_configs_cache, _agent_configs_cache_time
     
@@ -179,19 +232,28 @@ def load_agent_configs(force_refresh: bool = False) -> Dict:
         if current_time - _agent_configs_cache_time < AGENT_CONFIGS_CACHE_TTL:
             return _agent_configs_cache
     
-    # Scan Agent Engine for all reasoning engines
+    # Try to scan Agent Engine for all reasoning engines
     scanned_configs = scan_agent_engine_reasoning_engines(PROJECT_ID, LOCATION)
     
-    # Update cache
-    _agent_configs_cache = scanned_configs
-    _agent_configs_cache_time = current_time
-    
+    # If scanning succeeded and found agents, use them
     if scanned_configs:
+        _agent_configs_cache = scanned_configs
+        _agent_configs_cache_time = current_time
         print(f"✓ Loaded {len(scanned_configs)} agent(s) from Agent Engine")
-    else:
-        print("⚠ No agents found in Agent Engine")
+        return scanned_configs
     
-    return scanned_configs
+    # Fallback: Try environment variables (for backward compatibility or when scanning fails)
+    print("⚠ Agent Engine scan failed or returned no agents, trying environment variable fallback...")
+    fallback_configs = load_agent_configs_from_env_fallback()
+    if fallback_configs:
+        _agent_configs_cache = fallback_configs
+        _agent_configs_cache_time = current_time
+        print(f"✓ Loaded {len(fallback_configs)} agent(s) from environment variables (fallback)")
+        return fallback_configs
+    
+    # Last resort: return empty dict
+    print("⚠ No agents found - neither from Agent Engine scan nor environment variables")
+    return {}
 
 # Load initial agent configs
 AGENT_CONFIGS = load_agent_configs()

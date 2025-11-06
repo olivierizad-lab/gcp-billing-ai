@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Simple Deployment - Cloud Run with Custom Firestore Authentication
-# This script deploys Cloud Run services with custom authentication using Firestore
-# No DNS, Load Balancer, or Firebase Authentication required!
+# Web Application Deployment - Cloud Run with Custom Firestore Authentication
+# This script deploys the web application (backend + frontend) to Cloud Run
+# Uses custom Firestore authentication - no DNS, Load Balancer, or Firebase Authentication required!
 
 set -e  # Exit on any error
 
@@ -17,15 +17,15 @@ NC='\033[0m' # No Color
 PROJECT_ID="${PROJECT_ID:-qwiklabs-asl-04-8e9f23e85ced}"
 REGION="${REGION:-us-central1}"
 
-echo -e "${BLUE}🚀 Simple Deployment with Firestore Authentication${NC}"
-echo -e "${BLUE}==================================================${NC}"
+echo -e "${BLUE}🚀 Web Application Deployment with Firestore Authentication${NC}"
+echo -e "${BLUE}===========================================================${NC}"
 echo ""
 echo -e "${YELLOW}This deployment uses custom authentication with Firestore.${NC}"
 echo -e "${YELLOW}✅ No DNS configuration needed${NC}"
 echo -e "${YELLOW}✅ No load balancer needed${NC}"
 echo -e "${YELLOW}✅ No Firebase Authentication needed${NC}"
 echo -e "${YELLOW}✅ Uses existing Firestore for user storage${NC}"
-echo -e "${YELLOW}✅ Simple and secure!${NC}"
+echo -e "${YELLOW}✅ Automatically discovers agents from Agent Engine${NC}"
 echo ""
 echo -e "${YELLOW}Configuration:${NC}"
 echo "  Project ID: $PROJECT_ID"
@@ -61,7 +61,7 @@ echo ""
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Run infrastructure script but skip VPC (we don't need it for simple deployment)
+# Run infrastructure script but skip VPC (not needed for Cloud Run deployment)
 echo -e "${BLUE}=== Setting up Infrastructure (skipping VPC) ===${NC}"
 export PROJECT_ID REGION
 # Only enable APIs and create service accounts, skip VPC
@@ -91,7 +91,7 @@ echo ""
 echo -e "${BLUE}=== Deploying Applications with Firestore Auth ===${NC}"
 export PROJECT_ID REGION
 # No Firebase config needed - using Firestore for auth
-"$SCRIPT_DIR/03-applications-iap.sh"
+"$SCRIPT_DIR/03-applications.sh"
 
 echo ""
 echo -e "${GREEN}🎉 DEPLOYMENT SUCCESSFUL!${NC}"
@@ -113,5 +113,5 @@ echo "  1. Users can sign up with @asl.apps-eval.com email addresses"
 echo "  2. No additional configuration needed - Firestore handles authentication"
 echo "  3. Frontend API_URL is automatically configured"
 echo ""
-echo -e "${GREEN}🚀 Simple deployment with Firestore authentication!${NC}"
+echo -e "${GREEN}🚀 Web application deployment with Firestore authentication!${NC}"
 
