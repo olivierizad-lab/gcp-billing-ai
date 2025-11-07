@@ -31,7 +31,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '16'
 
       - name: Install GitBook CLI
         run: |
@@ -40,11 +40,15 @@ jobs:
       - name: Install GitBook plugins
         working-directory: docs
         run: |
-          gitbook install
+          # Workaround for Node.js compatibility
+          export NODE_OPTIONS="--no-experimental-fetch"
+          gitbook install || gitbook install
 
       - name: Build GitBook
         working-directory: docs
         run: |
+          # Workaround for Node.js compatibility
+          export NODE_OPTIONS="--no-experimental-fetch"
           gitbook build . _book
 
       - name: Setup Pages
