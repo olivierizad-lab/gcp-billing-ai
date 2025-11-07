@@ -4,6 +4,9 @@ description: Complete documentation for the GCP Billing Agent Gen AI solution
 url: https://olivierizad-lab.github.io
 baseurl: /gcp-billing-ai
 
+# Ensure index.md is used as the homepage
+index: index.md
+
 # Build settings
 theme: minima
 plugins:
