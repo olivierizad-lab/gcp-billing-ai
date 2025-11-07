@@ -622,3 +622,241 @@
   }
 }
 
+/* Help Modal */
+.help-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.help-modal {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.help-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.help-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.help-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.help-modal-close:hover {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.help-modal-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  overflow-x: auto;
+}
+
+.help-modal-tab {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.help-modal-tab:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+}
+
+.help-modal-tab.active {
+  color: var(--accent-color);
+  border-bottom-color: var(--accent-color);
+  background-color: var(--bg-primary);
+}
+
+.help-modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.help-tab-content {
+  max-width: 100%;
+}
+
+.help-tab-content h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.help-tab-content h4 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.help-section {
+  margin-bottom: 2rem;
+}
+
+.help-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+
+.help-section-header h3,
+.help-section-header h4 {
+  margin: 0;
+}
+
+.help-section-content {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.help-key-value {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.help-kv-row {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.help-kv-row:last-child {
+  border-bottom: none;
+}
+
+.help-kv-key {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.help-kv-value {
+  color: var(--text-secondary);
+}
+
+.help-resource-link {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: all 0.2s;
+  background: var(--bg-secondary);
+}
+
+.help-resource-link:hover {
+  background: var(--bg-primary);
+  border-color: var(--accent-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.help-resource-info {
+  flex: 1;
+}
+
+.help-resource-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: var(--text-primary);
+}
+
+.help-resource-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.help-resource-external {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.help-resource-link:hover .help-resource-external {
+  color: var(--accent-color);
+}
+
+@media (max-width: 768px) {
+  .help-modal {
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .help-modal-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .help-modal-tab {
+    min-width: auto;
+    padding: 0.75rem 1rem;
+    font-size: 0.8125rem;
+  }
+
+  .help-kv-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}
+

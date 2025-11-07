@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Send, Bot, User, Loader2, AlertCircle, History, Trash2, X, HelpCircle, BookOpen, ExternalLink } from 'lucide-react'
+import { Send, Bot, User, Loader2, AlertCircle, History, Trash2, X, HelpCircle, BookOpen, ExternalLink, Info, Link2, Zap, Code, FileText, Github, GitBranch } from 'lucide-react'
 import Auth from './Auth'
 import './App.css'
 
@@ -142,22 +142,30 @@ function App() {
   const [showHistory, setShowHistory] = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [sessionId, setSessionId] = useState(null) // Session ID for conversation context
-  const [showHelpMenu, setShowHelpMenu] = useState(false)
+  const [showHelpModal, setShowHelpModal] = useState(false)
+  const [helpTab, setHelpTab] = useState('about') // 'about', 'help', 'documentation', 'implementation'
   const messagesEndRef = useRef(null)
   const abortControllerRef = useRef(null)
 
   // Documentation URL - defaults to GitHub Pages, can be overridden via environment variable
   const GITBOOK_BASE_URL = import.meta.env.VITE_GITBOOK_URL || 'https://olivierizad-lab.github.io/gcp-billing-ai'
+  const GITHUB_REPO_URL = 'https://github.com/olivierizad-lab/gcp-billing-ai'
+  const API_DOCS_URL = `${API_BASE_URL}/docs`
+  const REDOC_URL = `${API_BASE_URL}/redoc`
   
   // Documentation links - URLs match GitBook structure from SUMMARY.md
-  // GitBook generates URLs from file names (without .md, lowercase, hyphens for spaces/underscores)
-  const helpLinks = [
-    { title: 'Getting Started', url: `${GITBOOK_BASE_URL}/getting-started/start-here`, icon: BookOpen },
-    { title: 'Architecture', url: `${GITBOOK_BASE_URL}/getting-started/architecture`, icon: BookOpen },
-    { title: 'Deployment Guide', url: `${GITBOOK_BASE_URL}/deployment/automated-deployment`, icon: BookOpen },
-    { title: 'Authentication', url: `${GITBOOK_BASE_URL}/authentication-and-security/authentication-setup`, icon: BookOpen },
-    { title: 'API Documentation', url: `${GITBOOK_BASE_URL}/solution-documentation/gen-ai-solution`, icon: BookOpen },
-    { title: 'Troubleshooting', url: `${GITBOOK_BASE_URL}/deployment/deployment-faq`, icon: BookOpen },
+  const documentationLinks = [
+    { title: 'Documentation Index', url: `${GITBOOK_BASE_URL}`, description: 'Complete directory of all guides and references', icon: BookOpen },
+  ]
+  
+  const repositoryLinks = [
+    { title: 'GitHub Repository', url: GITHUB_REPO_URL, description: 'View source code and contribute', icon: Github },
+    { title: 'Changelog & Release Notes', url: `${GITHUB_REPO_URL}/releases`, description: 'View version history and changes', icon: GitBranch },
+  ]
+  
+  const apiDocsLinks = [
+    { title: 'Interactive API Docs (Swagger UI)', url: API_DOCS_URL, description: 'Interactive API documentation and testing', icon: Zap },
+    { title: 'ReDoc API Documentation', url: REDOC_URL, description: 'Alternative API documentation format', icon: FileText },
   ]
   
   // Documentation is always configured (has a default URL), but check if it's explicitly empty
@@ -236,18 +244,25 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Close help menu when clicking outside
+  // Close help modal when clicking outside or pressing Escape
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showHelpMenu && !event.target.closest('.help-menu-container')) {
-        setShowHelpMenu(false)
+      if (showHelpModal && event.target.classList.contains('help-modal-overlay')) {
+        setShowHelpModal(false)
+      }
+    }
+    const handleEscape = (event) => {
+      if (event.key === 'Escape' && showHelpModal) {
+        setShowHelpModal(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
     }
-  }, [showHelpMenu])
+  }, [showHelpModal])
 
   const loadAgents = async () => {
     if (!API_BASE_URL) {
@@ -617,41 +632,15 @@ function App() {
             <span className="header-subtitle">Agent Engine Chat</span>
           </div>
           <div className="header-right">
-            {/* Help Menu */}
-            <div className="help-menu-container">
-              <button 
-                className="help-button"
-                onClick={() => setShowHelpMenu(!showHelpMenu)}
-                title="Help & Documentation"
-              >
-                <HelpCircle size={20} />
-                <span>Help</span>
-              </button>
-              {showHelpMenu && (
-                <div className="help-dropdown">
-                  <div className="help-dropdown-header">
-                    <BookOpen size={16} />
-                    <span>Documentation</span>
-                  </div>
-                  <div className="help-dropdown-links">
-                    {helpLinks.map((link, index) => (
-                      <a
-                        key={index}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="help-link"
-                        onClick={() => setShowHelpMenu(false)}
-                      >
-                        <link.icon size={16} />
-                        <span>{link.title}</span>
-                        <ExternalLink size={14} className="external-link-icon" />
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Help Button */}
+            <button 
+              className="help-button"
+              onClick={() => setShowHelpModal(true)}
+              title="Help & Documentation"
+            >
+              <HelpCircle size={20} />
+              <span>Help</span>
+            </button>
             <Auth user={user} onAuthChange={handleAuthChange} />
             <select
               className="agent-selector"
@@ -824,6 +813,282 @@ function App() {
           </button>
         </form>
       </div>
+
+      {/* Help Modal */}
+      {showHelpModal && (
+        <div className="help-modal-overlay" onClick={(e) => e.target.classList.contains('help-modal-overlay') && setShowHelpModal(false)}>
+          <div className="help-modal">
+            <div className="help-modal-header">
+              <h2>Help & Documentation</h2>
+              <button className="help-modal-close" onClick={() => setShowHelpModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="help-modal-tabs">
+              <button 
+                className={`help-modal-tab ${helpTab === 'about' ? 'active' : ''}`}
+                onClick={() => setHelpTab('about')}
+              >
+                <Info size={16} />
+                About
+              </button>
+              <button 
+                className={`help-modal-tab ${helpTab === 'help' ? 'active' : ''}`}
+                onClick={() => setHelpTab('help')}
+              >
+                <HelpCircle size={16} />
+                Help
+              </button>
+              <button 
+                className={`help-modal-tab ${helpTab === 'documentation' ? 'active' : ''}`}
+                onClick={() => setHelpTab('documentation')}
+              >
+                <BookOpen size={16} />
+                Documentation
+              </button>
+              <button 
+                className={`help-modal-tab ${helpTab === 'implementation' ? 'active' : ''}`}
+                onClick={() => setHelpTab('implementation')}
+              >
+                <Code size={16} />
+                Implementation
+              </button>
+            </div>
+            <div className="help-modal-content">
+              {/* About Tab */}
+              {helpTab === 'about' && (
+                <div className="help-tab-content">
+                  <div className="help-section">
+                    <div className="help-section-header">
+                      <Info size={16} />
+                      <h3>Version Information</h3>
+                    </div>
+                    <div className="help-key-value">
+                      <div className="help-kv-row">
+                        <div className="help-kv-key">Version</div>
+                        <div className="help-kv-value">1.3.0</div>
+                      </div>
+                      <div className="help-kv-row">
+                        <div className="help-kv-key">Status</div>
+                        <div className="help-kv-value">Production Ready</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="help-section">
+                    <div className="help-section-header">
+                      <Code size={16} />
+                      <h3>Technology Stack</h3>
+                    </div>
+                    <div className="help-key-value">
+                      <div className="help-kv-row">
+                        <div className="help-kv-key">Frontend</div>
+                        <div className="help-kv-value">React 18, Vite, Tailwind CSS</div>
+                      </div>
+                      <div className="help-kv-row">
+                        <div className="help-kv-key">Backend</div>
+                        <div className="help-kv-value">FastAPI, Python 3.11+</div>
+                      </div>
+                      <div className="help-kv-row">
+                        <div className="help-kv-key">Agents</div>
+                        <div className="help-kv-value">Google ADK, Google GenAI, Vertex AI Agent Engine</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="help-section">
+                    <div className="help-section-header">
+                      <Zap size={16} />
+                      <h3>Infrastructure & Tools</h3>
+                    </div>
+                    <div className="help-key-value">
+                      <div className="help-kv-row">
+                        <div className="help-kv-key">Infrastructure</div>
+                        <div className="help-kv-value">Cloud Run, Firestore, Vertex AI</div>
+                      </div>
+                      <div className="help-kv-row">
+                        <div className="help-kv-key">Authentication</div>
+                        <div className="help-kv-value">Custom Firestore-based JWT authentication</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Help Tab */}
+              {helpTab === 'help' && (
+                <div className="help-tab-content">
+                  <div className="help-section">
+                    <div className="help-section-header">
+                      <HelpCircle size={16} />
+                      <h3>Getting Started</h3>
+                    </div>
+                    <div className="help-section-content">
+                      <ol style={{ paddingLeft: '20px', lineHeight: '1.8' }}>
+                        <li>Select an agent from the dropdown menu</li>
+                        <li>Type your question in the input field</li>
+                        <li>Press Enter or click Send to query the agent</li>
+                        <li>View your query history using the History button</li>
+                      </ol>
+                    </div>
+                  </div>
+
+                  <div className="help-section">
+                    <div className="help-section-header">
+                      <AlertCircle size={16} />
+                      <h3>Common Questions</h3>
+                    </div>
+                    <div className="help-section-content">
+                      <p><strong>How do I sign up?</strong></p>
+                      <p>Click the Sign Up button and use an @asl.apps-eval.com email address.</p>
+                      <p><strong>Which agents are available?</strong></p>
+                      <p>Agents are automatically discovered from Vertex AI Agent Engine. Available agents will appear in the dropdown.</p>
+                      <p><strong>How do I view my query history?</strong></p>
+                      <p>Click the History button in the header to view and manage your previous queries.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Documentation Tab */}
+              {helpTab === 'documentation' && (
+                <div className="help-tab-content">
+                  <h3>Documentation</h3>
+                  <p>Comprehensive guides and resources for the GCP Billing Agent Application</p>
+                  
+                  <div className="help-section">
+                    <div className="help-section-header">
+                      <BookOpen size={16} />
+                      <h4>Documentation</h4>
+                    </div>
+                    <div className="help-section-content">
+                      {documentationLinks.map((link, index) => (
+                        <a
+                          key={index}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="help-resource-link"
+                        >
+                          <link.icon size={16} />
+                          <div className="help-resource-info">
+                            <div className="help-resource-title">{link.title}</div>
+                            <div className="help-resource-desc">{link.description}</div>
+                          </div>
+                          <ExternalLink size={14} className="help-resource-external" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="help-section">
+                    <div className="help-section-header">
+                      <Github size={16} />
+                      <h4>Repository Resources</h4>
+                    </div>
+                    <div className="help-section-content">
+                      {repositoryLinks.map((link, index) => (
+                        <a
+                          key={index}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="help-resource-link"
+                        >
+                          <link.icon size={16} />
+                          <div className="help-resource-info">
+                            <div className="help-resource-title">{link.title}</div>
+                            <div className="help-resource-desc">{link.description}</div>
+                          </div>
+                          <ExternalLink size={14} className="help-resource-external" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="help-section">
+                    <div className="help-section-header">
+                      <Zap size={16} />
+                      <h4>API Documentation</h4>
+                    </div>
+                    <div className="help-section-content">
+                      {apiDocsLinks.map((link, index) => (
+                        <a
+                          key={index}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="help-resource-link"
+                        >
+                          <link.icon size={16} />
+                          <div className="help-resource-info">
+                            <div className="help-resource-title">{link.title}</div>
+                            <div className="help-resource-desc">{link.description}</div>
+                          </div>
+                          <ExternalLink size={14} className="help-resource-external" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Implementation Tab */}
+              {helpTab === 'implementation' && (
+                <div className="help-tab-content">
+                  <div className="help-section">
+                    <div className="help-section-header">
+                      <Code size={16} />
+                      <h3>Architecture</h3>
+                    </div>
+                    <div className="help-section-content">
+                      <p>The GCP Billing Agent application consists of:</p>
+                      <ul style={{ paddingLeft: '20px', lineHeight: '1.8' }}>
+                        <li><strong>Frontend:</strong> React-based web interface hosted on Cloud Run</li>
+                        <li><strong>Backend API:</strong> FastAPI service that handles authentication and agent queries</li>
+                        <li><strong>Agents:</strong> Vertex AI Agent Engine reasoning engines for BigQuery analysis</li>
+                        <li><strong>Authentication:</strong> Custom Firestore-based JWT authentication with domain restrictions</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="help-section">
+                    <div className="help-section-header">
+                      <Link2 size={16} />
+                      <h3>Agent Discovery</h3>
+                    </div>
+                    <div className="help-section-content">
+                      <p>Agents are automatically discovered from Vertex AI Agent Engine using the service account's IAM permissions. If auto-discovery fails, the system falls back to environment variable configuration.</p>
+                    </div>
+                  </div>
+
+                  <div className="help-section">
+                    <div className="help-section-header">
+                      <FileText size={16} />
+                      <h3>Documentation Links</h3>
+                    </div>
+                    <div className="help-section-content">
+                      <a
+                        href={`${GITBOOK_BASE_URL}/getting-started/architecture`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="help-resource-link"
+                      >
+                        <BookOpen size={16} />
+                        <div className="help-resource-info">
+                          <div className="help-resource-title">Architecture Documentation</div>
+                          <div className="help-resource-desc">Complete system architecture with Mermaid diagrams</div>
+                        </div>
+                        <ExternalLink size={14} className="help-resource-external" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
