@@ -1,14 +1,20 @@
 # Jekyll configuration for GitHub Pages
 title: GCP Billing Agent Documentation
 description: Complete documentation for the GCP Billing Agent Gen AI solution
-url: https://olivierizad-lab.github.io/gcp-billing-ai
-baseurl: ""
+url: https://olivierizad-lab.github.io
+baseurl: /gcp-billing-ai
 
 # Build settings
 theme: minima
 plugins:
   - jekyll-feed
   - jekyll-sitemap
+
+# Markdown settings
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
 
 # Exclude files from processing
 exclude:
