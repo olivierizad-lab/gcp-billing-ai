@@ -1,5 +1,7 @@
 # Table of Contents
 
+* [Documentation Index](DOCUMENTATION-INDEX.md)
+
 ## Getting Started
 
 * [Start Here](START_HERE.md)

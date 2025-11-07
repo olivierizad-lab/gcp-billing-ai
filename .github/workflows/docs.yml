@@ -1,22 +1,61 @@
-name: Build docs
-     on:
-       push:
-         branches: [main]
-     jobs:
-       build:
-         runs-on: ubuntu-latest
-         steps:
-           - uses: actions/checkout@v4
-           - uses: actions/setup-node@v4
-             with:
-               node-version: 20
-           - run: npm install -g gitbook-cli
-           - run: gitbook install
-             working-directory: docs
-           - run: gitbook build
-             working-directory: docs
-           - name: Deploy to GitHub Pages
-             uses: peaceiris/actions-gh-pages@v3
-             with:
-               github_token: ${{ secrets.GITHUB_TOKEN }}
-               publish_dir: docs/_book
+name: Build and Deploy Documentation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install GitBook CLI
+        run: |
+          npm install -g gitbook-cli
+
+      - name: Install GitBook plugins
+        working-directory: docs
+        run: |
+          gitbook install
+
+      - name: Build GitBook
+        working-directory: docs
+        run: |
+          gitbook build . _book
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'docs/_book'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
