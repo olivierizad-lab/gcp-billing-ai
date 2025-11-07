@@ -33,27 +33,62 @@ jobs:
         with:
           node-version: '16'
 
+      - name: Debug - Show Node version
+        run: |
+          echo "Node version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+          echo "NPM root: $(npm root -g)"
+
       - name: Install GitBook CLI
         run: |
+          echo "Installing GitBook CLI..."
           npm install -g gitbook-cli
+          echo "GitBook CLI installed"
+          gitbook --version || echo "GitBook version check failed"
+
+      - name: Debug - Find graceful-fs files
+        run: |
+          echo "Looking for graceful-fs polyfills..."
+          find $(npm root -g)/gitbook-cli -name "polyfills.js" -path "*/graceful-fs/*" 2>/dev/null | head -5 || echo "No polyfills.js found"
+          find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/graceful-fs/*" 2>/dev/null | head -5 || echo "No polyfills.js found in Node installation"
 
       - name: Fix graceful-fs compatibility for Node.js 16+
         run: |
-          # Fix for graceful-fs polyfill compatibility issue
+          echo "Fixing graceful-fs compatibility..."
+          # Try multiple locations
           GFS_POLYFILL=$(find $(npm root -g)/gitbook-cli -name "polyfills.js" -path "*/graceful-fs/*" 2>/dev/null | head -1)
+          if [ -z "$GFS_POLYFILL" ]; then
+            GFS_POLYFILL=$(find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/graceful-fs/*" 2>/dev/null | head -1)
+          fi
           if [ -n "$GFS_POLYFILL" ]; then
+            echo "Found polyfill at: $GFS_POLYFILL"
+            cp "$GFS_POLYFILL" "$GFS_POLYFILL.backup"
             sed -i 's/cb\.apply(this, arguments)/if (typeof cb === "function") cb.apply(this, arguments)/g' "$GFS_POLYFILL" || true
+            echo "Polyfill patched"
+          else
+            echo "Warning: Could not find polyfills.js to patch"
           fi
 
       - name: Install GitBook plugins
         working-directory: docs
         run: |
-          gitbook install
+          echo "Installing GitBook plugins..."
+          gitbook install || {
+            echo "GitBook install failed, showing error..."
+            exit 1
+          }
+          echo "GitBook plugins installed successfully"
 
       - name: Build GitBook
         working-directory: docs
         run: |
-          gitbook build . _book
+          echo "Building GitBook documentation..."
+          gitbook build . _book || {
+            echo "GitBook build failed, showing error..."
+            exit 1
+          }
+          echo "GitBook build completed"
+          ls -la _book/ | head -10 || echo "Build directory not found"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
