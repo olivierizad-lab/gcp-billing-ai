@@ -1,13 +1,12 @@
-name: Build and Deploy Documentation
+name: Deploy Documentation to GitHub Pages
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
     paths:
       - 'docs/**'
-      - 'mkdocs.yml'
-      - '.github/workflows/docs.yml'
+      - 'README.md'
+      - 'CHANGELOG.md'
   workflow_dispatch:
 
 permissions:
@@ -20,41 +19,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+  deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install MkDocs and plugins
-        run: |
-          python -m pip install --upgrade pip
-          pip install mkdocs-material
-          pip install mkdocs-mermaid2-plugin
-          pip install pymdown-extensions
-          echo "Installed packages:"
-          pip list | grep -E "(mkdocs|mermaid)"
-
-      - name: Build MkDocs
-        run: |
-          mkdocs build --site-dir _site
-
+      
       - name: Setup Pages
         uses: actions/configure-pages@v4
-
+      
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./docs
+          destination: ./_site
+      
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
-        with:
-          path: '_site'
-
+      
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
