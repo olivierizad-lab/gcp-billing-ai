@@ -1,7 +1,11 @@
 # 📚 GCP Billing Agent Documentation
 
+<div align="center">
+
 | **Current Version: v1.3.0** | **Status: Production Ready** | **Auto-Updated** |
 | --------------------------- | ---------------------------- | ---------------- |
+
+</div>
 
 Welcome to the comprehensive documentation for the GCP Billing Agent Application - a Gen AI solution for analyzing GCP billing data using Google's Agent Development Kit (ADK) and Vertex AI Agent Engine.
 
@@ -56,43 +60,53 @@ make deploy-web-simple PROJECT_ID=your-project-id
 ## 📚 **Documentation Sections**
 
 ### Getting Started
-* [Start Here](START_HERE.md) - Quick start guide for the web interface
-* [Getting Started](GETTING_STARTED.md) - Detailed setup instructions
-* [Architecture](architecture.md) - Complete system architecture with diagrams
+
+- **[Start Here](START_HERE.md)** - Quick start guide for the web interface
+- **[Getting Started](GETTING_STARTED.md)** - Detailed setup instructions
+- **[Architecture](architecture.md)** - Complete system architecture with diagrams
 
 ### Deployment
-* [Automated Deployment](AUTOMATED_DEPLOYMENT.md) - Automated deployment guide
-* [Cloud Run Deployment](DEPLOYMENT_CLOUD_RUN.md) - Cloud Run deployment details
-* [Deployment Overview](DEPLOYMENT.md) - General deployment information
-* [Backend Deployment](DEPLOYMENT_BACKEND.md) - Backend-specific deployment
-* [Frontend Deployment](DEPLOYMENT_FRONTEND.md) - Frontend-specific deployment
-* [Deployment FAQ](DEPLOYMENT_FAQ.md) - Common deployment questions
+
+- **[Automated Deployment](AUTOMATED_DEPLOYMENT.md)** - Automated deployment guide
+- **[Cloud Run Deployment](DEPLOYMENT_CLOUD_RUN.md)** - Cloud Run deployment details
+- **[Deployment Overview](DEPLOYMENT.md)** - General deployment information
+- **[Backend Deployment](DEPLOYMENT_BACKEND.md)** - Backend-specific deployment
+- **[Frontend Deployment](DEPLOYMENT_FRONTEND.md)** - Frontend-specific deployment
+- **[Deployment FAQ](DEPLOYMENT_FAQ.md)** - Common deployment questions
 
 ### Authentication & Security
-* [Authentication Setup](AUTHENTICATION_SETUP.md) - Firestore authentication configuration
-* [Security](SECURITY.md) - Security best practices and architecture
+
+- **[Authentication Setup](AUTHENTICATION_SETUP.md)** - Firestore authentication configuration
+- **[Security](SECURITY.md)** - Security best practices and architecture
 
 ### Agents
-* [Agent Overview](agents/) - Overview of available agents
-  * [bq_agent_mick](agents/bq_agent_mick.md) - Alternative BigQuery agent implementation
-  * [bq_agent](agents/bq_agent.md) - Production-ready BigQuery agent
-  * [bq_agent_mick Deployment](agents/bq_agent_mick_deployment.md) - Deployment guide
-  * [bq_agent_mick Usage](agents/bq_agent_mick_usage.md) - Usage guide
-  * [Deployment Automation](agents/deployment_automation.md) - Agent deployment automation
-  * [Deployment Management](agents/deployment_management.md) - Managing deployments
-  * [Session Management](agents/session_management.md) - Agent session management
+
+- **[Agent Overview](agents/)** - Overview of available agents
+  - [bq_agent_mick](agents/bq_agent_mick.md) - Alternative BigQuery agent implementation
+  - [bq_agent](agents/bq_agent.md) - Production-ready BigQuery agent
+  - [bq_agent_mick Deployment](agents/bq_agent_mick_deployment.md) - Deployment guide
+  - [bq_agent_mick Usage](agents/bq_agent_mick_usage.md) - Usage guide
+  - [Deployment Automation](agents/deployment_automation.md) - Agent deployment automation
+  - [Deployment Management](agents/deployment_management.md) - Managing deployments
+  - [Session Management](agents/session_management.md) - Agent session management
 
 ### Solution Documentation
-* [Gen AI Solution](GEN_AI_SOLUTION.md) - Complete Gen AI solution overview
+
+- **[Gen AI Solution](GEN_AI_SOLUTION.md)** - Complete Gen AI solution overview
 
 ### Testing
-* [Testing History](TESTING_HISTORY.md) - Testing history and results
-* [Test Documentation](tests/tests.md) - Test documentation and guides
+
+- **[Testing History](TESTING_HISTORY.md)** - Testing history and results
+- **[Test Documentation](tests/tests.md)** - Test documentation and guides
 
 ---
+
+<div align="center">
 
 **📝 Note**: This documentation is automatically updated with every push to the main branch. All guides are consolidated and comprehensive, covering architecture, deployment, security, and troubleshooting.
 
 | **🔄 Last Updated**: 2025-01-27 | **Version**: v1.3.0 |
 | ------------------------------- | ------------------- |
+
+</div>
 
