@@ -46,12 +46,9 @@ exclude:
   - mkdocs.yml
   - book.json
 
-# Navigation
-navigation:
-  - title: Home
-    url: /
-  - title: Getting Started
-    url: /START_HERE.html
-  - title: Architecture
-    url: /architecture.html
+# Header links (simplified navigation)
+header_pages:
+  - index.md
+  - START_HERE.md
+  - architecture.md
 
