@@ -1,6 +1,6 @@
 # 📚 GCP Billing Agent Documentation
 
-| **Current Version: v1.3.0** | **Status: Production Ready** | **Auto-Updated** |
+| **Current Version: v1.4.0-rc3** | **Status: Production Ready** | **Auto-Updated** |
 | --------------------------- | ---------------------------- | ---------------- |
 
 Welcome to the comprehensive documentation for the GCP Billing Agent Application - a Gen AI solution for analyzing GCP billing data using Google's Agent Development Kit (ADK) and Vertex AI Agent Engine.
@@ -93,6 +93,6 @@ make deploy-web-simple PROJECT_ID=your-project-id
 
 **📝 Note**: This documentation is automatically updated with every push to the main branch. All guides are consolidated and comprehensive, covering architecture, deployment, security, and troubleshooting.
 
-| **🔄 Last Updated**: 2025-01-27 | **Version**: v1.3.0 |
+| **🔄 Last Updated**: 2025-01-27 | **Version**: v1.4.0-rc3 |
 | ------------------------------- | ------------------- |
 
