@@ -46,9 +46,6 @@ exclude:
   - mkdocs.yml
   - book.json
 
-# Header links (simplified navigation)
-header_pages:
-  - index.md
-  - START_HERE.md
-  - architecture.md
+# Minima theme will automatically create navigation from pages
+# We can customize this by creating a custom header include if needed
 

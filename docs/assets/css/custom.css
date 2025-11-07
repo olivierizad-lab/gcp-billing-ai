@@ -14,10 +14,12 @@
 
 /* Fix navigation links spacing */
 .site-nav {
-  display: block;
-  margin: 1em 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
   padding: 0.5em 0;
-  border-bottom: 1px solid #e0e0e0;
+  line-height: 1.5;
 }
 
 .site-nav a {
@@ -26,17 +28,42 @@
   padding: 0.25em 0.5em;
   color: #0366d6;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .site-nav a:hover {
   text-decoration: underline;
 }
 
-/* Hide auto-generated navigation if it's causing issues */
+/* Hide any unformatted navigation text that might appear */
+.site-nav > :not(a):not(button) {
+  display: none;
+}
+
+/* Ensure navigation is properly formatted */
+.site-nav ul {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.site-nav li {
+  margin: 0 0.5em;
+}
+
+/* Fix header layout */
 .site-header .wrapper {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Hide any text nodes in header that aren't properly formatted */
+.site-header .wrapper > :not(.site-title):not(.site-nav):not(.trigger) {
+  display: none;
 }
 
 /* Fix any duplicate content issues */
