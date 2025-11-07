@@ -7,13 +7,13 @@ Welcome to the comprehensive documentation for the GCP Billing Agent Application
 
 ## 🌐 **Quick Access**
 
-* **📖 Documentation Index** - Complete documentation directory with all guides and references
-* **🏗️ Architecture Guide** - Technical architecture and design decisions with Mermaid diagrams
-* **🚀 Deployment Guide** - Step-by-step deployment instructions
-* **🔒 Authentication Setup** - Firestore authentication configuration
-* **📊 Agent Documentation** - Complete agent implementation details
-* **📈 Metrics Dashboard** - Repository analytics and AI effectiveness metrics
-* **🔧 Troubleshooting** - Common issues and solutions
+* **[📖 Documentation Index](DOCUMENTATION-INDEX.html)** - Complete documentation directory with all guides and references
+* **[🏗️ Architecture Guide](architecture.html)** - Technical architecture and design decisions with Mermaid diagrams
+* **[🚀 Deployment Guide](AUTOMATED_DEPLOYMENT.html)** - Step-by-step deployment instructions
+* **[🔒 Authentication Setup](AUTHENTICATION_SETUP.html)** - Firestore authentication configuration
+* **[📊 Agent Documentation](agents/bq_agent.html)** - Complete agent implementation details
+* **[📈 Metrics Dashboard](METRICS.html)** - Repository analytics and AI effectiveness metrics
+* **[🔧 Troubleshooting](TROUBLESHOOTING_403.html)** - Common issues and solutions
 
 ## 🎯 **Key Features**
 
@@ -85,6 +85,9 @@ make deploy-web-simple PROJECT_ID=your-project-id
 
 ### Solution Documentation
 * [Gen AI Solution](GEN_AI_SOLUTION.md) - Complete Gen AI solution overview
+
+### Analytics & Metrics
+* [Code Metrics & AI Effectiveness](METRICS.md) - Repository analytics, vibe coding metrics, and AI contribution insights
 
 ### Testing
 * [Testing History](TESTING_HISTORY.md) - Testing history and results
