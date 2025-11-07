@@ -3,6 +3,9 @@ site_description: Complete documentation for the GCP Billing Agent Gen AI soluti
 site_author: ASL Class
 site_url: https://olivierizad-lab.github.io/gcp-billing-ai/
 
+# Configure docs_dir to current directory since markdown files are in docs/
+docs_dir: .
+
 theme:
   name: material
   palette:
