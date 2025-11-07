@@ -113,7 +113,7 @@ export PROJECT_ID="your-project-id"
 - API: `https://agent-engine-api-xxxxx-uc.a.run.app`
 - UI: `https://agent-engine-ui-xxxxx-uc.a.run.app`
 
-Users will authenticate with Google accounts when accessing.
+End users sign in using the custom Firestore-based authentication flow (restricted to `@asl.apps-eval.com`).
 
 ### Clean Up When Done
 
@@ -123,7 +123,7 @@ export PROJECT_ID="your-project-id"
 ./cleanup.sh
 ```
 
-See [QUICK_START.md](./QUICK_START.md) for more details.
+For a full walkthrough of provisioning Firestore authentication and environment variables, see [START_HERE.md](./START_HERE.md).
 
 ---
 
@@ -131,9 +131,9 @@ See [QUICK_START.md](./QUICK_START.md) for more details.
 
 | Use Case | Recommendation |
 |----------|---------------|
-| **Testing/Development** | Local Development |
-| **Course/Temporary** | Simple Cloud Run Deploy |
-| **Production with Custom Domain** | Full Load Balancer Setup |
+| **Testing / Development** | Local development (`npm run dev`, `python main.py`) |
+| **Course / Temporary Environments** | `make deploy-web-simple PROJECT_ID=...` (Firestore auth) |
+| **Production** | See [AUTOMATED_DEPLOYMENT.md](./AUTOMATED_DEPLOYMENT.md) for the full Cloud Run pipeline |
 
 ---
 
@@ -152,9 +152,13 @@ cd web/frontend && npm install && npm run dev
 
 ### Cloud Run Deployment
 ```bash
+# Option A: Makefile helper (recommended)
+make deploy-web-simple PROJECT_ID=your-project-id
+
+# Option B: Deployment script
 cd web/deploy
 export PROJECT_ID="your-project-id"
-./deploy-simple-iap.sh
+./deploy-web.sh
 ```
 
 ---
@@ -162,8 +166,8 @@ export PROJECT_ID="your-project-id"
 ## Next Steps
 
 1. **Start with Local** - Test everything locally first
-2. **Deploy to Cloud Run** - Use Simple IAP deployment for course
-3. **Clean Up** - Run cleanup script when done
+2. **Deploy to Cloud Run** - Use the commands above to publish the Firestore-authenticated UI
+3. **Clean Up** - Run `web/deploy/cleanup.sh` when finished to remove Cloud Run resources
 
-See [QUICK_START.md](./QUICK_START.md) for Cloud Run deployment details, or [START_HERE.md](./START_HERE.md) for more comprehensive documentation.
+See [START_HERE.md](./START_HERE.md) and [AUTOMATED_DEPLOYMENT.md](./AUTOMATED_DEPLOYMENT.md) for comprehensive deployment guidance.
 

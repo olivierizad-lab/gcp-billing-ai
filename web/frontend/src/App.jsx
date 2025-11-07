@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Send, Bot, User, Loader2, AlertCircle, History, Trash2, X, HelpCircle, BookOpen, ExternalLink, Info, Link2, Zap, Code, FileText, Github, GitBranch } from 'lucide-react'
+import { Send, Bot, User, Loader2, AlertCircle, History, Trash2, X, HelpCircle, BookOpen, ExternalLink, Info, Link2, Zap, Code, FileText, Github, GitBranch, BarChart3 } from 'lucide-react'
 import Auth from './Auth'
 import './App.css'
 
@@ -846,6 +846,13 @@ function App() {
                 <BookOpen size={16} />
                 Documentation
               </button>
+              <button
+                className={`help-modal-tab ${helpTab === 'metrics' ? 'active' : ''}`}
+                onClick={() => setHelpTab('metrics')}
+              >
+                <BarChart3 size={16} />
+                Metrics
+              </button>
               <button 
                 className={`help-modal-tab ${helpTab === 'implementation' ? 'active' : ''}`}
                 onClick={() => setHelpTab('implementation')}
@@ -1028,6 +1035,72 @@ function App() {
                           <ExternalLink size={14} className="help-resource-external" />
                         </a>
                       ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Metrics Tab */}
+              {helpTab === 'metrics' && (
+                <div className="help-tab-content">
+                  <h3>Development Metrics & Analytics</h3>
+                  <p>Explore vibe coding adoption, repository activity, and module-level change analytics.</p>
+
+                  <div className="help-section">
+                    <div className="help-section-header">
+                      <BarChart3 size={16} />
+                      <h4>Open Metrics Dashboard</h4>
+                    </div>
+                    <div className="help-section-content">
+                      <button
+                        className="help-resource-link"
+                        onClick={() => window.open('/metrics', '_blank')}
+                      >
+                        <BarChart3 size={16} />
+                        <div className="help-resource-info">
+                          <div className="help-resource-title">Launch Metrics Dashboard</div>
+                          <div className="help-resource-desc">Open the interactive metrics page in a new tab</div>
+                        </div>
+                        <ExternalLink size={14} className="help-resource-external" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="help-section">
+                    <div className="help-section-header">
+                      <Info size={16} />
+                      <h4>How to use the dashboard</h4>
+                    </div>
+                    <div className="help-section-content">
+                      <ol style={{ paddingLeft: '20px', lineHeight: '1.8' }}>
+                        <li>Choose the analysis window (7, 30, 90, 180, 365 days).</li>
+                        <li>Click <strong>Refresh</strong> to pull the latest data from the backend.</li>
+                        <li>Review the KPI cards for vibe-coding adoption, commits per day, and average changes.</li>
+                        <li>Inspect activity charts, heatmaps, and module churn panels for deeper insight.</li>
+                        <li>Scroll to the recent activity table to audit AI-assisted commits.</li>
+                      </ol>
+                    </div>
+                  </div>
+
+                  <div className="help-section">
+                    <div className="help-section-header">
+                      <FileText size={16} />
+                      <h4>Learn more</h4>
+                    </div>
+                    <div className="help-section-content">
+                      <a
+                        href={`${GITBOOK_BASE_URL}/METRICS.html`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="help-resource-link"
+                      >
+                        <BookOpen size={16} />
+                        <div className="help-resource-info">
+                          <div className="help-resource-title">Documentation: Development Metrics</div>
+                          <div className="help-resource-desc">How metrics are calculated, vibe coding markers, and CLI tips</div>
+                        </div>
+                        <ExternalLink size={14} className="help-resource-external" />
+                      </a>
                     </div>
                   </div>
                 </div>

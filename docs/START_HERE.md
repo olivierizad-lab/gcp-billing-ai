@@ -17,7 +17,6 @@ web/
 │   └── package.json
 │
 ├── README.md         # Full documentation
-├── QUICKSTART.md     # 5-minute setup guide
 └── START_HERE.md     # This file!
 ```
 
@@ -49,17 +48,16 @@ npm run dev
 Deploy directly to Cloud Run with Firestore authentication:
 
 ```bash
+# Makefile helper (recommended)
 make deploy-web-simple PROJECT_ID=your-project-id
-```
 
-Or using the deployment script:
-```bash
+# Or use the deployment script
 cd web/deploy
 export PROJECT_ID="your-project-id"
 ./deploy-web.sh
 ```
 
-**See [GETTING_STARTED.md](./GETTING_STARTED.md) for detailed instructions!**
+**See [GETTING_STARTED.md](./GETTING_STARTED.md) and [AUTOMATED_DEPLOYMENT.md](./AUTOMATED_DEPLOYMENT.md) for detailed instructions.**
 
 ## 🎯 What You Can Do
 
@@ -72,7 +70,7 @@ export PROJECT_ID="your-project-id"
 ## 📚 Documentation
 
 - **[GETTING_STARTED.md](./GETTING_STARTED.md)** - Local development & deployment guide
-- **[QUICKSTART.md](./QUICKSTART.md)** - Detailed setup instructions
+- **[AUTOMATED_DEPLOYMENT.md](./AUTOMATED_DEPLOYMENT.md)** - End-to-end Cloud Run pipeline
 - **[README.md](./README.md)** - Full documentation with API details
 
 ## 🐛 Troubleshooting
@@ -104,5 +102,5 @@ export PROJECT_ID="your-project-id"
 
 ---
 
-**Questions?** Check [QUICKSTART.md](./QUICKSTART.md) or [README.md](./README.md) for more details!
+**Questions?** Check [GETTING_STARTED.md](./GETTING_STARTED.md) or [README.md](./README.md) for more details!
 
