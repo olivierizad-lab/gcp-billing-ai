@@ -34,20 +34,34 @@ jobs:
           curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-          nvm install 14
-          nvm use 14
+          nvm install 14.21.3
+          nvm alias default 14.21.3
+          nvm use 14.21.3
           echo "Node version: $(node --version)"
           echo "NPM version: $(npm --version)"
+          # Remove system Node from PATH to force nvm version
+          export PATH="$NVM_DIR/versions/node/v14.21.3/bin:$PATH"
+          echo "PATH=$PATH" >> $GITHUB_ENV
           echo "NVM_DIR=$NVM_DIR" >> $GITHUB_ENV
-          echo "[ -s \"$NVM_DIR/nvm.sh\" ] && \\\. \"$NVM_DIR/nvm.sh\"" >> $GITHUB_ENV
-          echo "nvm use 14" >> $GITHUB_ENV
+          echo "NODE_VERSION=14.21.3" >> $GITHUB_ENV
+          # Verify we're using the right version
+          if [[ ! "$(node --version)" =~ ^v14\.21\.3 ]]; then
+            echo "ERROR: Node version mismatch. Got $(node --version), expected v14.21.3"
+            exit 1
+          fi
 
       - name: Install GitBook CLI with Node 14
         run: |
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-          nvm use 14
+          nvm use 14.21.3
+          export PATH="$NVM_DIR/versions/node/v14.21.3/bin:$PATH"
           echo "Using Node version: $(node --version)"
+          echo "Node path: $(which node)"
+          if [[ ! "$(node --version)" =~ ^v14 ]]; then
+            echo "ERROR: Not using Node 14! Got $(node --version)"
+            exit 1
+          fi
           echo "Installing GitBook CLI..."
           npm install -g gitbook-cli
           echo "GitBook CLI installed"
@@ -58,8 +72,14 @@ jobs:
         run: |
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-          nvm use 14
+          nvm use 14.21.3
+          export PATH="$NVM_DIR/versions/node/v14.21.3/bin:$PATH"
           echo "Using Node version: $(node --version)"
+          echo "Node path: $(which node)"
+          if [[ ! "$(node --version)" =~ ^v14 ]]; then
+            echo "ERROR: Not using Node 14! Got $(node --version)"
+            exit 1
+          fi
           echo "Installing GitBook plugins..."
           gitbook install
           echo "GitBook plugins installed successfully"
@@ -69,8 +89,14 @@ jobs:
         run: |
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-          nvm use 14
+          nvm use 14.21.3
+          export PATH="$NVM_DIR/versions/node/v14.21.3/bin:$PATH"
           echo "Using Node version: $(node --version)"
+          echo "Node path: $(which node)"
+          if [[ ! "$(node --version)" =~ ^v14 ]]; then
+            echo "ERROR: Not using Node 14! Got $(node --version)"
+            exit 1
+          fi
           echo "Building GitBook documentation..."
           gitbook build . _book
           echo "GitBook build completed"
