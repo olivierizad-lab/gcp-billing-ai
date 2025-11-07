@@ -37,10 +37,13 @@ jobs:
         run: |
           npm install -g gitbook-cli
 
-      - name: Fix graceful-fs compatibility
+      - name: Fix graceful-fs compatibility for Node.js 16+
         run: |
-          # Fix for Node.js 16+ compatibility with GitBook
-          find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/graceful-fs/*" -exec sed -i 's/cb\.apply(this, arguments)/if (typeof cb === "function") cb.apply(this, arguments)/g' {} \; || true
+          # Fix for graceful-fs polyfill compatibility issue
+          GFS_POLYFILL=$(find $(npm root -g)/gitbook-cli -name "polyfills.js" -path "*/graceful-fs/*" 2>/dev/null | head -1)
+          if [ -n "$GFS_POLYFILL" ]; then
+            sed -i 's/cb\.apply(this, arguments)/if (typeof cb === "function") cb.apply(this, arguments)/g' "$GFS_POLYFILL" || true
+          fi
 
       - name: Install GitBook plugins
         working-directory: docs
