@@ -2,8 +2,18 @@
 
 <div align="center">
 
-| **Current Version: v1.3.0** | **Status: Production Ready** | **Auto-Updated** |
-| --------------------------- | ---------------------------- | ---------------- |
+<table>
+  <tr>
+    <th>Current Version</th>
+    <th>Status</th>
+    <th>Auto-Updated</th>
+  </tr>
+  <tr>
+    <td><strong>v1.3.0</strong></td>
+    <td><strong>Production Ready</strong></td>
+    <td>✅</td>
+  </tr>
+</table>
 
 </div>
 
@@ -105,8 +115,7 @@ make deploy-web-simple PROJECT_ID=your-project-id
 
 **📝 Note**: This documentation is automatically updated with every push to the main branch. All guides are consolidated and comprehensive, covering architecture, deployment, security, and troubleshooting.
 
-| **🔄 Last Updated**: 2025-01-27 | **Version**: v1.3.0 |
-| ------------------------------- | ------------------- |
+**🔄 Last Updated**: 2025-01-27 | **Version**: v1.3.0
 
 </div>
 

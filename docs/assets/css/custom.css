@@ -44,23 +44,62 @@
   margin: 0;
 }
 
+/* Hide duplicate site title if it appears in content */
+.page-content > h1:first-child + h1 {
+  display: none;
+}
+
+/* Hide site title duplication in header */
+.site-header .site-title:first-child + .site-title {
+  display: none;
+}
+
+/* Fix site header layout */
+.site-header {
+  border-top: 3px solid #424242;
+  border-bottom: 1px solid #e8e8e8;
+  min-height: 56px;
+  position: relative;
+}
+
+.site-header .wrapper {
+  padding-left: 1em;
+  padding-right: 1em;
+}
+
+/* Ensure header title doesn't appear duplicated in content */
+.page-content {
+  padding: 2rem 0;
+}
+
 /* Improve table formatting */
 .page-content table {
-  margin: 1.5em 0;
+  margin: 1.5em auto;
   border-collapse: collapse;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
 }
 
 .page-content table th,
 .page-content table td {
-  padding: 0.75em;
+  padding: 0.75em 1em;
   border: 1px solid #e0e0e0;
-  text-align: left;
+  text-align: center;
 }
 
 .page-content table th {
   background-color: #f5f5f5;
   font-weight: bold;
+}
+
+.page-content table td {
+  background-color: #ffffff;
+}
+
+/* Hide table separator lines if they're being rendered incorrectly */
+.page-content table tr:first-of-type + tr:has(td[colspan]),
+.page-content table tbody tr:empty {
+  display: none;
 }
 
 /* Fix heading spacing */
