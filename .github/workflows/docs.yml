@@ -28,16 +28,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 14
         uses: actions/setup-node@v4
         with:
-          node-version: '14'
+          node-version: '14.21.3'
+          check-latest: false
 
-      - name: Debug - Show Node version
+      - name: Verify Node.js version
         run: |
           echo "Node version: $(node --version)"
           echo "NPM version: $(npm --version)"
           echo "NPM root: $(npm root -g)"
+          if [[ ! "$(node --version)" =~ ^v14 ]]; then
+            echo "ERROR: Expected Node.js 14, but got $(node --version)"
+            exit 1
+          fi
 
       - name: Install GitBook CLI
         run: |
