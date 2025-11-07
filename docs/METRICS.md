@@ -2,7 +2,11 @@
 
 > **Snapshot date:** November 7, 2025 (analysis window: last 60 calendar days)
 
-This report mirrors the Provisioner-style metrics document. It summarises how fast we are shipping, where code is growing, and where vibe coding (AI-assisted development) is—or is not—being used today.
+This report mirrors the comparative metrics document used on similar enterprise apps. It summarises how fast we are shipping, where code is growing, and where vibe coding (AI-assisted development) is—or is not—being used today.
+
+> **How it is generated**
+>
+> A Cloud Run Job (`metrics_job.py`) runs every two hours (or on demand via `/metrics/refresh`). It pulls git statistics using a GitHub personal access token stored in Secret Manager, writes the aggregated result to Firestore (`metrics_snapshots`), and the UI/API read from that cache. Refreshing from the dashboard simply triggers the job and polls Firestore for the newest snapshot.
 
 ---
 
@@ -32,7 +36,7 @@ Key takeaways:
 | --- | --- |
 | Oct 30 | Repository bootstrap, Cloud Run skeleton |
 | Nov 1–4 | GitBook → Jekyll migration, documentation index fixes |
-| Nov 2–3 | Provisioner-style help modal & About/Implementation tabs |
+| Nov 2–3 | Help modal redesign & About/Implementation tabs |
 | Nov 5–7 | Metrics collector, `/metrics` API, dashboard wiring |
 | Nov 7 | Tagged `v1.4.0-rc3` (metrics endpoint + doc cleanup) |
 
@@ -99,7 +103,7 @@ Next step: emit deployment metadata (tag, timestamp) from GitHub Actions into th
 - **Documentation footprint:** 6,151 executable lines (35.7% of LOC) keeping architecture, deployment, and troubleshooting guides current.
 - **Automation:** 1,253 LOC of scripts for deployment, cleanup, and metrics collection.
 
-These metrics show that in under two weeks the project delivered a production-ready architecture on par with the Provisioner playbook—Cloud Run services, Vertex AI integration, and a documentation-first experience.
+These metrics show that in under two weeks the project delivered a production-ready architecture that matches the UX and documentation maturity of comparable enterprise apps—Cloud Run services, Vertex AI integration, and a documentation-first experience.
 
 ---
 
@@ -166,24 +170,24 @@ curl -s "${API_BASE_URL}/metrics?days=90" \
 Recommended roadmap:
 1. Tag vibe commits to enable AI vs manual charts.
 2. Capture deployment metadata and test coverage in the metrics payload.
-3. Add comparative charts (e.g., Provisioner vs Billing Agent) once data is available.
+3. Add comparative charts once cross-project data is available.
 
 ---
 
 ## Conclusion & Next Steps
 
 - **Velocity:** 125 commits over seven active coding days (~14/day) demonstrates rapid iteration by a single primary engineer.
-- **Codebase depth:** 17K executable LOC spanning frontend, backend, automation, and docs—comparable to mature Provisioner modules.
-- **Documentation-first culture:** Over one-third of the repository is documentation, mirroring the Provisioner approach to knowledge capture.
+- **Codebase depth:** 17K executable LOC spanning frontend, backend, automation, and docs—comparable to other mature internal modules.
+- **Documentation-first culture:** Over one-third of the repository is documentation, mirroring the knowledge-capture approach used on similar apps.
 
-To produce Provisioner-style comparative statements (e.g., “90% faster / cheaper with vibe coding”) we need two follow-ups:
+To produce comparative statements (e.g., “90% faster / cheaper with vibe coding”) we need two follow-ups:
 
 1. **Tag AI-assisted commits** with vibe markers so the dashboard can quantify AI vs human output.
 2. **Surface test & release metrics** (pytest/Jest counts, deployment timestamps) to build charts similar to the CAL testing matrix.
 
 Once those hooks are in place, the next snapshot can state conclusions like
 
-> “Cloud Billing Agent delivered 17K LOC, three release candidates, and two production services in < 2 weeks—an order-of-magnitude faster than traditional replatforming projects—while maintaining Provisioner-level documentation.”
+> “Cloud Billing Agent delivered 17K LOC, three release candidates, and two production services in < 2 weeks—an order-of-magnitude faster than traditional replatforming projects—while maintaining enterprise-ready documentation.”
 
 *Report regenerated: November 7, 2025.*
 

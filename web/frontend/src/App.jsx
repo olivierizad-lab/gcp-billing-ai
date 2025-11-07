@@ -616,6 +616,46 @@ function App() {
 
   const selectedAgentInfo = agents.find(a => a.name === selectedAgent)
 
+  const extractHistoryTitle = (item) => {
+    if (!item?.message) {
+      return item?.agent_name || 'Conversation'
+    }
+
+    let text = item.message
+    const userLabelIndex = text.indexOf('User:')
+    if (userLabelIndex >= 0) {
+      text = text.slice(userLabelIndex + 5)
+    }
+
+    const assistantIndex = text.indexOf('Assistant:')
+    if (assistantIndex >= 0) {
+      text = text.slice(0, assistantIndex)
+    }
+
+    text = text.replace(/\s+/g, ' ').trim()
+
+    if (!text) {
+      text = item.message.replace(/\s+/g, ' ').trim()
+    }
+
+    if (!text) {
+      return item?.agent_name || 'Conversation'
+    }
+
+    return text.length > 80 ? `${text.slice(0, 77)}…` : text
+  }
+
+  const extractHistoryPreview = (item) => {
+    if (!item?.message) {
+      return ''
+    }
+    const text = item.message.replace(/\s+/g, ' ').trim()
+    if (!text) {
+      return ''
+    }
+    return text.length > 140 ? `${text.slice(0, 137)}…` : text
+  }
+
   // Show auth screen if not logged in
   if (!user) {
     return <Auth user={user} onAuthChange={handleAuthChange} />
@@ -727,7 +767,7 @@ function App() {
                     onClick={() => loadHistoryAsMessages(item)}
                   >
                     <div className="history-item-header">
-                      <span className="history-agent">{item.agent_name}</span>
+                      <span className="history-title">{extractHistoryTitle(item)}</span>
                       <button
                         className="history-delete-button"
                         onClick={(e) => deleteHistoryItem(item.id, e)}
@@ -736,7 +776,10 @@ function App() {
                         <Trash2 size={14} />
                       </button>
                     </div>
-                    <div className="history-message">{item.message}</div>
+                    <div className="history-meta">
+                      <span className="history-agent">{item.agent_name || 'Unknown agent'}</span>
+                    </div>
+                    <div className="history-message">{extractHistoryPreview(item)}</div>
                     <div className="history-timestamp">
                       {new Date(item.timestamp).toLocaleString()}
                     </div>

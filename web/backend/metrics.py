@@ -9,8 +9,15 @@ from typing import Dict, List, Any
 from pathlib import Path
 import re
 
-# Repository root directory (assuming this script is in web/backend/)
-REPO_ROOT = Path(__file__).parent.parent.parent
+# Repository root directory. When running inside the metrics collector job we
+# override this via the METRICS_REPO_PATH environment variable (points to the
+# freshly cloned working tree).
+REPO_ROOT = Path(
+    os.getenv(
+        "METRICS_REPO_PATH",
+        Path(__file__).parent.parent.parent,
+    )
+)
 
 
 def get_git_commits(days: int = 30) -> List[Dict[str, Any]]:

@@ -469,7 +469,7 @@ info: ## Show deployment information and instructions
 	@echo "     Run: $(COLOR_CYAN)make test-local$(COLOR_RESET)"
 	@echo ""
 	@echo "View detailed deployment docs:"
-	@echo "  $(AGENT_DIR)/DEPLOYMENT.md"
+	@echo "  docs/DEPLOYMENT_GUIDE.md"
 	@echo ""
 	@echo "View configuration:"
 	@echo "  $(COLOR_CYAN)make config$(COLOR_RESET)"
@@ -484,3 +484,38 @@ info: ## Show deployment information and instructions
 
 # Quick deployment alias
 deploy: deploy-agent-engine ## Alias for deploy-agent-engine (default deployment method)
+
+
+# ---------------------------------------------------------------------------
+# Metrics collector Cloud Run Job
+# ---------------------------------------------------------------------------
+
+METRICS_SA ?= metrics-collector-sa@$(PROJECT_ID).iam.gserviceaccount.com
+
+deploy-metrics-job: check-metrics-vars ## Deploy the Cloud Run metrics collector job
+	@echo "Deploying metrics collector job to $(PROJECT_ID)/$(REGION)..."
+	@gcloud run jobs deploy metrics-collector \
+	  --image="gcr.io/$(PROJECT_ID)/$(API_SERVICE):latest" \
+	  --region="$(REGION)" \
+	  --service-account="$(METRICS_SA)" \
+	  --command=python \
+	  --args=metrics_job.py \
+	  --set-env-vars="GCP_PROJECT_ID=$(PROJECT_ID),LOCATION=$(REGION)" \
+	  --set-secrets="GITHUB_TOKEN=$(METRICS_SECRET):latest" \
+	  --project "$(PROJECT_ID)"
+
+run-metrics-job: check-metrics-vars ## Execute the metrics collector job immediately
+	@gcloud run jobs execute metrics-collector \
+	  --region="$(REGION)" \
+	  --project "$(PROJECT_ID)"
+
+check-metrics-vars:
+	@if [ -z "$(PROJECT_ID)" ]; then \
+	  echo "✗ Error: PROJECT_ID must be set (make ... PROJECT_ID=your-project)"; exit 1; \
+	fi
+	@if [ -z "$(REGION)" ]; then \
+	  echo "✗ Error: REGION must be set (make ... REGION=us-central1)"; exit 1; \
+	fi
+	@if [ -z "$(METRICS_SECRET)" ]; then \
+	  echo "✗ Error: METRICS_SECRET must be set (Secret Manager entry holding the GitHub PAT)"; exit 1; \
+	fi

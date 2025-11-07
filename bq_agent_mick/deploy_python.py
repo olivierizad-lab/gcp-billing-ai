@@ -53,7 +53,7 @@ def deploy_agent(project_id, location, agent_name="bq_agent_mick"):
         
         print("\n" + "=" * 60)
         print("⚠ Note: Direct ADK agent deployment to Vertex AI Agent Builder")
-        print("   requires additional setup. See DEPLOYMENT.md for alternatives.")
+        print("   requires additional setup. See docs/DEPLOYMENT_GUIDE.md for alternatives.")
         print("=" * 60)
         
         print("\nRecommended deployment options:")
@@ -100,7 +100,7 @@ def deploy_as_cloud_run(project_id, location, agent_name="bq_agent_mick"):
     print("1. Create a Cloud Run service that hosts the agent")
     print("2. Expose REST endpoints for agent interaction")
     print("3. Deploy using gcloud or Cloud Build")
-    print("\nSee DEPLOYMENT.md for detailed Cloud Run deployment steps.")
+    print("\nSee docs/DEPLOYMENT_GUIDE.md for detailed deployment steps across Cloud Run and Agent Engine.")
 
 
 def main():

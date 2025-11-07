@@ -127,6 +127,15 @@ if [ -n "$BQ_AGENT_ID" ]; then
     BACKEND_ENV_VARS="$BACKEND_ENV_VARS,BQ_AGENT_REASONING_ENGINE_ID=$BQ_AGENT_ID"
 fi
 
+# Attach metrics job reference if the Cloud Run job exists
+DEFAULT_METRICS_JOB_NAME="projects/$PROJECT_ID/locations/$REGION/jobs/metrics-collector"
+if gcloud run jobs describe "metrics-collector" --region="$REGION" --project="$PROJECT_ID" >/dev/null 2>&1; then
+    BACKEND_ENV_VARS="$BACKEND_ENV_VARS,METRICS_JOB_NAME=$DEFAULT_METRICS_JOB_NAME"
+    echo -e "${BLUE}ℹ️  Metrics collector job detected; enabling refresh endpoint${NC}"
+else
+    echo -e "${YELLOW}⚠️  Metrics collector job not found. /metrics/refresh will return 503 until the job is created.${NC}"
+fi
+
 # First, try to clear VPC connector if service exists (ignore errors)
 echo -e "${YELLOW}Clearing VPC connector from existing service (if any)...${NC}"
 gcloud run services update "$API_SERVICE" \

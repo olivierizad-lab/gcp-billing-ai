@@ -11,11 +11,7 @@
 ## Deployment
 
 * [Automated Deployment](AUTOMATED_DEPLOYMENT.md)
-* [Cloud Run Deployment](DEPLOYMENT_CLOUD_RUN.md)
-* [Deployment Overview](DEPLOYMENT.md)
-* [Backend Deployment](DEPLOYMENT_BACKEND.md)
-* [Frontend Deployment](DEPLOYMENT_FRONTEND.md)
-* [Deployment FAQ](DEPLOYMENT_FAQ.md)
+* [Deployment Guide](DEPLOYMENT_GUIDE.md)
 
 ## Authentication & Security
 

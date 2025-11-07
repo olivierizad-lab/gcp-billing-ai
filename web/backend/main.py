@@ -32,6 +32,20 @@ except ModuleNotFoundError:
     METRICS_AVAILABLE = False
     get_all_metrics = None  # type: ignore
 
+try:
+    from metrics_store import get_latest_snapshot  # type: ignore
+    METRICS_STORE_AVAILABLE = True
+except ModuleNotFoundError:
+    METRICS_STORE_AVAILABLE = False
+    get_latest_snapshot = None  # type: ignore
+
+try:
+    from google.cloud import run_v2  # type: ignore
+    RUN_CLIENT_AVAILABLE = True
+except Exception:
+    RUN_CLIENT_AVAILABLE = False
+    run_v2 = None  # type: ignore
+
 # Load environment variables (optional - for local development only)
 # In Cloud Run/Docker, all configuration comes from environment variables
 # This .env file loading is optional and only used for local development
@@ -97,6 +111,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
 # Configuration
 PROJECT_ID = os.getenv("BQ_PROJECT") or os.getenv("GCP_PROJECT_ID", "qwiklabs-asl-04-8e9f23e85ced")
 LOCATION = os.getenv("LOCATION", "us-central1")
+METRICS_JOB_NAME = os.getenv("METRICS_JOB_NAME")
 
 # Cache for agent configurations (to avoid API calls on every request)
 _agent_configs_cache: Optional[Dict] = None
@@ -809,15 +824,47 @@ async def query_stream(request: QueryRequest, user_token: dict = Depends(verify_
 
 @app.get("/metrics")
 async def metrics_endpoint(days: int = 30, user_token: dict = Depends(verify_token)):
-    """Return repository analytics and vibe coding metrics."""
-    if not METRICS_AVAILABLE or get_all_metrics is None:
-        raise HTTPException(status_code=503, detail="Metrics module not available in this deployment")
+    """Return the latest stored metrics snapshot for the requested analysis window."""
+    if not METRICS_STORE_AVAILABLE or get_latest_snapshot is None:
+        raise HTTPException(status_code=503, detail="Metrics snapshot storage not available")
+
+    days = max(1, min(365, days))
     try:
-        days = max(1, min(365, days))
-        metrics = get_all_metrics(days)
-        return metrics
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Metrics collection failed: {str(e)}")
+        snapshot = get_latest_snapshot(days)
+    except Exception as exc:
+        print(f"Error retrieving metrics snapshot: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to read metrics snapshot") from exc
+
+    if not snapshot:
+        raise HTTPException(status_code=503, detail="Metrics snapshot not available yet. Please try again later.")
+
+    return {"snapshot_id": snapshot["id"], **snapshot}
+
+
+@app.post("/metrics/refresh")
+async def metrics_refresh(user_token: dict = Depends(verify_token)):
+    """Trigger the Cloud Run Job that refreshes metrics snapshots."""
+    if not METRICS_JOB_NAME:
+        raise HTTPException(status_code=503, detail="Metrics job not configured")
+
+    if not RUN_CLIENT_AVAILABLE or run_v2 is None:
+        raise HTTPException(status_code=503, detail="Cloud Run Jobs client not available")
+
+    try:
+        client = run_v2.JobsClient()
+        operation = client.run_job(name=METRICS_JOB_NAME)
+        execution_name = ""
+        try:
+            metadata = operation.metadata
+            if metadata and getattr(metadata, "execution", None):
+                execution_name = metadata.execution
+        except Exception:
+            execution_name = ""
+
+        return {"status": "triggered", "execution": execution_name}
+    except Exception as exc:
+        print(f"Failed to trigger metrics job: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to trigger metrics job") from exc
 
 
 @app.post("/query", response_model=QueryResponse)

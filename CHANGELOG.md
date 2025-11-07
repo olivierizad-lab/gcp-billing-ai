@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation Quick Access links (now clickable)
 - Custom CSS for improved documentation formatting and styling
 - nginx sub_filter configuration to inject absolute URLs for OG images
+- Cloud Run metrics collector job (GitHub PAT + Firestore snapshots) and `/metrics/refresh` endpoint
 
 ### Changed
 - Switched documentation from GitBook CLI to Jekyll for GitHub Pages

@@ -62,12 +62,8 @@ make deploy-web-simple PROJECT_ID=your-project-id
 * [Architecture](architecture.md) - Complete system architecture with diagrams
 
 ### Deployment
-* [Automated Deployment](AUTOMATED_DEPLOYMENT.md) - Automated deployment guide
-* [Cloud Run Deployment](DEPLOYMENT_CLOUD_RUN.md) - Cloud Run deployment details
-* [Deployment Overview](DEPLOYMENT.md) - General deployment information
-* [Backend Deployment](DEPLOYMENT_BACKEND.md) - Backend-specific deployment
-* [Frontend Deployment](DEPLOYMENT_FRONTEND.md) - Frontend-specific deployment
-* [Deployment FAQ](DEPLOYMENT_FAQ.md) - Common deployment questions
+* [Automated Deployment](AUTOMATED_DEPLOYMENT.md) - One-command Cloud Build + Cloud Run deployment
+* [Deployment Guide](DEPLOYMENT_GUIDE.md) - Cloud Run, Agent Engine, manual steps, and FAQ
 
 ### Authentication & Security
 * [Authentication Setup](AUTHENTICATION_SETUP.md) - Firestore authentication configuration

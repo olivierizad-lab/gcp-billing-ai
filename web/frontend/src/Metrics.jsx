@@ -8,27 +8,133 @@ function Metrics() {
   const [metrics, setMetrics] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [token, setToken] = useState(null)
   const [days, setDays] = useState(30)
+  const [generatedAt, setGeneratedAt] = useState(null)
+  const [availableDays, setAvailableDays] = useState([])
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
-    loadMetrics()
-  }, [days])
+    const storedToken = localStorage.getItem('auth_token')
+    if (!storedToken) {
+      setError('Authentication required. Sign in to view metrics.')
+      setLoading(false)
+    } else {
+      setToken(storedToken)
+    }
+  }, [])
 
-  const loadMetrics = async () => {
+  useEffect(() => {
+    if (token) {
+      loadMetrics(token)
+    }
+  }, [days, token])
+
+  const fetchMetricsData = async (authToken = token) => {
+    if (!authToken) {
+      throw new Error('Authentication required. Sign in to view metrics.')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/metrics?days=${days}`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include'
+    })
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      const detail = body?.detail ? ` ${body.detail}` : ''
+      throw new Error(`Failed to load metrics: ${response.status}${detail}`)
+    }
+
+    return response.json()
+  }
+
+  const applyMetricsData = (data) => {
+    if (!data || !data.metrics) {
+      throw new Error('Metrics snapshot not available yet. Please try again later.')
+    }
+
+    console.log('Loaded metrics snapshot:', data.snapshot_id, data.metrics)
+    setMetrics(data.metrics)
+      setGeneratedAt(data.generated_at || data.metrics.generated_at || null)
+      setAvailableDays(data.available_days || [])
+  }
+
+  const loadMetrics = async (authToken = token) => {
+    if (!authToken) {
+      setError('Authentication required. Sign in to view metrics.')
+      setLoading(false)
+      return
+    }
     try {
       setLoading(true)
       setError(null)
-      const response = await fetch(`${API_BASE_URL}/metrics?days=${days}`)
-      if (!response.ok) {
-        throw new Error(`Failed to load metrics: ${response.statusText}`)
-      }
-      const data = await response.json()
-      setMetrics(data)
+      const data = await fetchMetricsData(authToken)
+      applyMetricsData(data)
     } catch (err) {
       setError(err.message)
       console.error('Error loading metrics:', err)
+      setMetrics(null)
+      setGeneratedAt(null)
+      setAvailableDays([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleRefresh = async () => {
+    if (!token) {
+      setError('Authentication required. Sign in to refresh metrics.')
+      return
+    }
+
+    try {
+      setRefreshing(true)
+      setError(null)
+
+      const response = await fetch(`${API_BASE_URL}/metrics/refresh`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        const detail = body?.detail ? ` ${body.detail}` : ''
+        throw new Error(`Failed to trigger refresh: ${response.status}${detail}`)
+      }
+
+      const previousGeneratedAt = generatedAt
+      const startTime = Date.now()
+      const timeoutMs = 2 * 60 * 1000
+      const pollIntervalMs = 5000
+
+      while (Date.now() - startTime < timeoutMs) {
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+        try {
+          const data = await fetchMetricsData(token)
+          const snapshotGeneratedAt = data.generated_at || data.metrics?.generated_at
+          if (snapshotGeneratedAt && snapshotGeneratedAt !== previousGeneratedAt) {
+            applyMetricsData(data)
+            return
+          }
+        } catch (pollError) {
+          console.warn('Polling metrics snapshot failed:', pollError)
+        }
+      }
+
+      console.warn('Metrics refresh timed out waiting for new snapshot')
+    } catch (err) {
+      setError(err.message)
+      console.error('Error refreshing metrics:', err)
+    } finally {
+      setRefreshing(false)
     }
   }
 
@@ -48,7 +154,7 @@ function Metrics() {
       <div className="metrics-container">
         <div className="metrics-error">
           <p>Error loading metrics: {error}</p>
-          <button onClick={loadMetrics}>Retry</button>
+          <button onClick={() => loadMetrics(token)}>Retry</button>
         </div>
       </div>
     )
@@ -99,16 +205,24 @@ function Metrics() {
           <label>
             Analysis Period:
             <select value={days} onChange={(e) => setDays(parseInt(e.target.value))}>
-              <option value={7}>Last 7 days</option>
-              <option value={30}>Last 30 days</option>
-              <option value={90}>Last 90 days</option>
-              <option value={180}>Last 180 days</option>
-              <option value={365}>Last year</option>
+              {[7, 30, 90, 180, 365].map((option) => (
+                <option
+                  key={option}
+                  value={option}
+                  disabled={
+                    availableDays.length > 0 &&
+                    option !== days &&
+                    !availableDays.includes(option)
+                  }
+                >
+                  Last {option} days
+                </option>
+              ))}
             </select>
           </label>
-          <button onClick={loadMetrics} className="refresh-button">
-            <Activity size={16} />
-            Refresh
+          <button onClick={handleRefresh} className="refresh-button" disabled={refreshing}>
+            <Activity size={16} className={refreshing ? 'spinner' : ''} />
+            {refreshing ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
       </div>
@@ -358,7 +472,7 @@ function Metrics() {
       )}
 
       <div className="metrics-footer">
-        <p>Metrics generated at: {metrics.generated_at ? new Date(metrics.generated_at).toLocaleString() : 'N/A'}</p>
+        <p>Metrics generated at: {generatedAt ? new Date(generatedAt).toLocaleString() : 'N/A'}</p>
         <p>Analysis period: Last {metrics.analysis_period_days || days} days</p>
       </div>
     </div>

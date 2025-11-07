@@ -413,7 +413,7 @@ export PROJECT_ID="your-project-id"
 - Full IAP integration
 - Production-ready
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment guides.
+See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for the full deployment guide.
 
 ---
 
@@ -583,7 +583,7 @@ gcloud projects get-iam-policy YOUR_PROJECT_ID \
 ### Documentation
 
 - [Getting Started Guide](./GETTING_STARTED.md)
-- [Deployment Guide](./DEPLOYMENT.md)
+- [Deployment Guide](./DEPLOYMENT_GUIDE.md)
 - [Testing Guide](./TESTING_HISTORY.md)
 - [Agent Development](./agents/)
 

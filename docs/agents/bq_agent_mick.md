@@ -206,7 +206,7 @@ This agent can be deployed for production use in several ways:
 2. **Vertex AI Agent Builder Console** - Manual configuration
 3. **Local Development** - Run directly with `main.py`
 
-See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for detailed deployment instructions.
+See [`DEPLOYMENT_GUIDE.md`](../DEPLOYMENT_GUIDE.md) for detailed deployment instructions.
 
 Quick info:
 ```bash
@@ -214,4 +214,4 @@ Quick info:
 python bq_agent_mick/deploy_python.py --project YOUR_PROJECT_ID
 ```
 
-**Note**: ADK doesn't have a direct "deploy to Vertex AI" command. See DEPLOYMENT.md for deployment strategies.
+**Note**: ADK doesn't have a direct "deploy to Vertex AI" command. See `DEPLOYMENT_GUIDE.md` for deployment strategies.
