@@ -19,7 +19,7 @@ This report mirrors the comparative metrics document used on similar enterprise 
 | **Total Commits** | 125 (≈13.9 commits/day) |
 | **Primary Contributors** | Mick Miller (107), olivierizad-lab (18), supporting contributors (3) |
 | **Executable LOC** | 17,230 lines (19,107 including docs and assets) |
-| **Release Tags** | v0.2.0-rc1, v1.3.0-rc2, v1.4.0-rc3 |
+| **Release Tags** | v0.2.0-rc1, v1.3.0-rc2, v1.4.0-rc3, v1.5.0 |
 | **AI-flagged Commits** | 0 (vibe markers not yet applied) |
 
 Key takeaways:
@@ -38,7 +38,7 @@ Key takeaways:
 | Nov 1–4 | GitBook → Jekyll migration, documentation index fixes |
 | Nov 2–3 | Help modal redesign & About/Implementation tabs |
 | Nov 5–7 | Metrics collector, `/metrics` API, dashboard wiring |
-| Nov 7 | Tagged `v1.4.0-rc3` (metrics endpoint + doc cleanup) |
+| Nov 7 | Tagged `v1.5.0` (Cloud Run metrics collector, Firestore snapshots, UI polish) |
 
 Average latency from feature request to production: **< 48 hours** during this iteration.
 
@@ -87,7 +87,7 @@ Backend + Frontend together account for ~28% of the codebase, while documentatio
 ## Deployment & Release Metrics
 
 - **Cloud Run Deployments:** Rolling deployments triggered via `make deploy-web-simple` or `web/deploy/deploy-web.sh`.
-- **Tags:** Three release candidates to date (`v0.2.0-rc1`, `v1.3.0-rc2`, `v1.4.0-rc3`).
+- **Tags:** Four published builds (`v0.2.0-rc1`, `v1.3.0-rc2`, `v1.4.0-rc3`, `v1.5.0`).
 - **Downtime:** None reported (all Cloud Run updates rolling).
 - **Hotfix turn-around:** Typically < 24 hours (example: documentation index corrections).
 

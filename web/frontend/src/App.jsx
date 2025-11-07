@@ -916,7 +916,7 @@ function App() {
                     <div className="help-key-value">
                       <div className="help-kv-row">
                         <div className="help-kv-key">Version</div>
-                        <div className="help-kv-value">1.4.0-rc3</div>
+                        <div className="help-kv-value">1.5.0</div>
                       </div>
                       <div className="help-kv-row">
                         <div className="help-kv-key">Status</div>

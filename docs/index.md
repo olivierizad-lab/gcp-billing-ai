@@ -9,7 +9,7 @@
     <th>Auto-Updated</th>
   </tr>
   <tr>
-    <td><strong>v1.4.0-rc3</strong></td>
+    <td><strong>v1.5.0</strong></td>
     <td><strong>Production Ready</strong></td>
     <td>✅</td>
   </tr>
@@ -112,7 +112,7 @@ make deploy-web-simple PROJECT_ID=your-project-id
 
 **📝 Note**: This documentation is automatically updated with every push to the main branch. All guides are consolidated and comprehensive, covering architecture, deployment, security, and troubleshooting.
 
-**🔄 Last Updated**: 2025-01-27 | **Version**: v1.4.0-rc3
+**🔄 Last Updated**: 2025-11-07 | **Version**: v1.5.0
 
 </div>
 

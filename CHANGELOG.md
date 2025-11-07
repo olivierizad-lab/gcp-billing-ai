@@ -9,33 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_No unreleased changes yet._
+
+## [1.5.0] - 2025-11-07
+
 ### Added
-- GitHub Pages documentation deployment using Jekyll
-- Custom favicon with dollar sign and cloud theme (SVG and PNG versions)
-- PNG favicon versions (1200x1200, 512x512, 180x180) for better messaging app compatibility
-- Open Graph meta tags for rich link previews in messaging apps (Apple Messages, WhatsApp, etc.)
-- Favicon conversion script using Sharp library
-- Documentation Quick Access links (now clickable)
-- Custom CSS for improved documentation formatting and styling
-- nginx sub_filter configuration to inject absolute URLs for OG images
-- Cloud Run metrics collector job (GitHub PAT + Firestore snapshots) and `/metrics/refresh` endpoint
+- Cloud Run metrics collector job with GitHub PAT support and Firestore snapshot storage.
+- `/metrics/refresh` API endpoint plus frontend polling flow for on-demand refreshes.
+- Makefile targets (`deploy-metrics-job`, `run-metrics-job`) to manage the collector.
+- Metrics documentation updates describing the snapshot pipeline and secret configuration.
 
 ### Changed
-- Switched documentation from GitBook CLI to Jekyll for GitHub Pages
-- Updated help menu to match provisioner app style with tabbed modal
-- Improved favicon visibility (larger dollar sign, solid background)
-- Enhanced documentation formatting (tables, lists, spacing)
-- Updated deployment scripts to remove IAP references (now uses Firestore authentication)
-- Improved nginx configuration for better OG image URL handling
+- Metrics dashboard now loads cached snapshots, shows progress feedback, and supports manual refresh.
+- Backend automatically injects metrics job configuration during deployment.
+- Documentation landing pages updated to version `v1.5.0` with current timestamps.
 
 ### Fixed
-- Table formatting in UI (fixed-width columns)
-- Agent loading issues (IAM permissions and fallback mechanism)
-- Documentation build and deployment issues
-- Documentation header formatting (removed unformatted text)
-- Removed obsolete documentation files
-- Quick Access links in documentation (now functional)
-- Link previews in messaging apps (Apple Messages, etc.)
+- Metrics fetch failures stemming from missing auth headers and unconfigured job name.
+- Cloud Run job now clones full git history ensuring non-zero commit/LOC totals.
+- Metrics UI scrollability issues on smaller viewports.
+
+## [1.4.0-rc3] - 2025-01-27
+
+### Added
+- GitHub Pages documentation deployment using Jekyll.
+- Custom favicon set (SVG + PNG variants) and Open Graph assets for link previews.
+- Documentation Quick Access links and custom CSS for improved formatting.
+
+### Changed
+- Updated help modal to match the Provisioner app style with tabbed layout.
+- Enhanced documentation structure after migrating away from GitBook CLI.
+- Deployment scripts cleaned up (removed IAP references, clarified Firestore auth).
+
+### Fixed
+- Table formatting in the chat UI (fixed-width tables).
+- Agent loading regressions related to IAM and auto-discovery fallbacks.
+- Documentation index/headers rendering issues and stale files.
+- Link previews in messaging apps using the new favicon/OG tags.
 
 ## [1.3.0-rc2] - 2025-01-XX
 
