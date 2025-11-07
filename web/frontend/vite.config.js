@@ -13,6 +13,15 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, '')
       }
     }
+  },
+  // Build configuration
+  build: {
+    rollupOptions: {
+      output: {
+        // Ensure consistent file naming for better caching
+        assetFileNames: 'assets/[name].[hash].[ext]'
+      }
+    }
   }
 })
 
