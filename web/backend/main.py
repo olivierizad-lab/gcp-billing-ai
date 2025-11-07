@@ -25,6 +25,7 @@ from auth import (
     create_user, authenticate_user, get_user_by_id, delete_user,
     create_access_token, decode_token, validate_email_domain, REQUIRED_DOMAIN
 )
+from metrics import get_all_metrics
 
 # Load environment variables (optional - for local development only)
 # In Cloud Run/Docker, all configuration comes from environment variables
@@ -799,6 +800,18 @@ async def query_stream(request: QueryRequest, user_token: dict = Depends(verify_
             "X-Accel-Buffering": "no"  # Disable buffering in nginx
         }
     )
+
+
+@app.get("/metrics")
+async def metrics_endpoint(days: int = 30, user_token: dict = Depends(verify_token)):
+    """Return repository analytics and vibe coding metrics."""
+    try:
+        # Sanitize analysis window (1 - 365 days)
+        days = max(1, min(365, days))
+        metrics = get_all_metrics(days)
+        return metrics
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Metrics collection failed: {str(e)}")
 
 
 @app.post("/query", response_model=QueryResponse)
