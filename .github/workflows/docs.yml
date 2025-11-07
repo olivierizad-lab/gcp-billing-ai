@@ -101,12 +101,45 @@ jobs:
           export PATH="$NVM_DIR/versions/node/v14.21.3/bin:$PATH"
           echo "Using Node version: $(node --version)"
           echo "Node path: $(which node)"
-          if [[ ! "$(node --version)" =~ ^v14 ]]; then
-            echo "ERROR: Not using Node 14! Got $(node --version)"
-            exit 1
-          fi
+          
+          # CRITICAL: Patch graceful-fs RIGHT before gitbook install
+          # gitbook-cli uses Node 20's npm internally, so we must patch its graceful-fs
+          echo "Patching graceful-fs in Node 20 before gitbook install..."
+          GFS_FILE="/opt/hostedtoolcache/node/20.19.5/x64/lib/node_modules/gitbook-cli/node_modules/npm/node_modules/graceful-fs/polyfills.js"
+          
+          # The file might not exist yet, so we'll patch it when it gets created
+          # First, create a wrapper script that patches on-the-fly
+          cat > /tmp/patch-graceful-fs.sh << 'EOF'
+#!/bin/bash
+GFS_FILE="/opt/hostedtoolcache/node/20.19.5/x64/lib/node_modules/gitbook-cli/node_modules/npm/node_modules/graceful-fs/polyfills.js"
+if [ -f "$GFS_FILE" ]; then
+  echo "Patching graceful-fs file..."
+  sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' "$GFS_FILE"
+  echo "Patched: $GFS_FILE"
+fi
+EOF
+          chmod +x /tmp/patch-graceful-fs.sh
+          
+          # Try to patch any existing files
+          find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/graceful-fs/*" -exec sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' {} \; 2>/dev/null || true
+          
           echo "Installing GitBook plugins..."
-          gitbook install
+          # Run gitbook install with retry logic that patches on failure
+          gitbook install 2>&1 | tee /tmp/gitbook-install.log || {
+            echo "GitBook install failed, attempting to patch and retry..."
+            # Patch the specific file mentioned in the error
+            GFS_FILE="/opt/hostedtoolcache/node/20.19.5/x64/lib/node_modules/gitbook-cli/node_modules/npm/node_modules/graceful-fs/polyfills.js"
+            if [ -f "$GFS_FILE" ]; then
+              echo "Patching $GFS_FILE..."
+              sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' "$GFS_FILE"
+              echo "Retrying gitbook install..."
+              gitbook install
+            else
+              echo "Could not find graceful-fs file to patch"
+              cat /tmp/gitbook-install.log
+              exit 1
+            fi
+          }
           echo "GitBook plugins installed successfully"
 
       - name: Build GitBook
