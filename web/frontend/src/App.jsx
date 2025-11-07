@@ -1185,7 +1185,7 @@ function App() {
                     </div>
                     <div className="help-section-content">
                       <a
-                        href={`${GITBOOK_BASE_URL}/getting-started/architecture`}
+                        href={`${GITBOOK_BASE_URL}/architecture.html`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="help-resource-link"
