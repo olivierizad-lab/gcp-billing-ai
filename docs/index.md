@@ -21,12 +21,12 @@ Welcome to the comprehensive documentation for the GCP Billing Agent Application
 
 ## 🌐 **Quick Access**
 
-* **📖 Documentation Index** - Complete documentation directory with all guides and references
-* **🏗️ Architecture Guide** - Technical architecture and design decisions with Mermaid diagrams
-* **🚀 Deployment Guide** - Step-by-step deployment instructions
-* **🔒 Authentication Setup** - Firestore authentication configuration
-* **📊 Agent Documentation** - Complete agent implementation details
-* **🔧 Troubleshooting** - Common issues and solutions
+* **[📖 Documentation Index](index.html)** - Complete documentation directory with all guides and references
+* **[🏗️ Architecture Guide](architecture.html)** - Technical architecture and design decisions with Mermaid diagrams
+* **[🚀 Deployment Guide](AUTOMATED_DEPLOYMENT.html)** - Step-by-step deployment instructions
+* **[🔒 Authentication Setup](AUTHENTICATION_SETUP.html)** - Firestore authentication configuration
+* **[📊 Agent Documentation](agents/bq_agent.html)** - Complete agent implementation details
+* **[🔧 Troubleshooting](TROUBLESHOOTING_403.html)** - Common issues and solutions
 
 ## 🎯 **Key Features**
 
