@@ -5,14 +5,15 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY main.py history.py auth.py ./
+# Copy application code (entire backend directory)
+COPY . .
 
 # Note: Reasoning engine IDs are automatically discovered from Agent Engine
 # No environment variables needed for agent configuration!
