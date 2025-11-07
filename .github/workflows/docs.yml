@@ -1,4 +1,4 @@
-name: Build and Deploy Documentation (GitBook - DEPRECATED)
+name: Build and Deploy Documentation
 
 on:
   push:
@@ -28,137 +28,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 14 using nvm
-        run: |
-          # Use nvm to install and use Node.js 14
-          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-          nvm install 14.21.3
-          nvm alias default 14.21.3
-          nvm use 14.21.3
-          echo "Node version: $(node --version)"
-          echo "NPM version: $(npm --version)"
-          # Remove system Node from PATH to force nvm version
-          export PATH="$NVM_DIR/versions/node/v14.21.3/bin:$PATH"
-          echo "PATH=$PATH" >> $GITHUB_ENV
-          echo "NVM_DIR=$NVM_DIR" >> $GITHUB_ENV
-          echo "NODE_VERSION=14.21.3" >> $GITHUB_ENV
-          # Verify we're using the right version
-          if [[ ! "$(node --version)" =~ ^v14\.21\.3 ]]; then
-            echo "ERROR: Node version mismatch. Got $(node --version), expected v14.21.3"
-            exit 1
-          fi
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Patch graceful-fs in Node 20 (used by gitbook-cli)
+      - name: Install MkDocs and plugins
         run: |
-          echo "Patching graceful-fs in Node 20 installation (used by gitbook-cli)..."
-          # Patch the specific file that gitbook-cli uses
-          GFS_FILE="/opt/hostedtoolcache/node/20.19.5/x64/lib/node_modules/gitbook-cli/node_modules/npm/node_modules/graceful-fs/polyfills.js"
-          if [ -f "$GFS_FILE" ]; then
-            echo "Found graceful-fs file at: $GFS_FILE"
-            cp "$GFS_FILE" "$GFS_FILE.backup"
-            # Fix the problematic line
-            sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' "$GFS_FILE"
-            echo "Patched graceful-fs file"
-          else
-            echo "File not found, searching for it..."
-            find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/graceful-fs/*" 2>/dev/null | head -5
-            # Patch all we find
-            find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/graceful-fs/*" -exec sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' {} \; 2>/dev/null || true
-            echo "Patched all found graceful-fs files"
-          fi
+          pip install mkdocs-material mkdocs-mermaid2-plugin pymdown-extensions
 
-      - name: Install GitBook CLI with Node 14
-        run: |
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-          nvm use 14.21.3
-          export PATH="$NVM_DIR/versions/node/v14.21.3/bin:$PATH"
-          echo "Using Node version: $(node --version)"
-          echo "Node path: $(which node)"
-          if [[ ! "$(node --version)" =~ ^v14 ]]; then
-            echo "ERROR: Not using Node 14! Got $(node --version)"
-            exit 1
-          fi
-          echo "Installing GitBook CLI..."
-          npm install -g gitbook-cli
-          echo "GitBook CLI installed"
-          gitbook --version || echo "GitBook version check"
-          
-          # After installation, patch graceful-fs in gitbook-cli's npm
-          echo "Patching graceful-fs after gitbook-cli installation..."
-          find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/gitbook-cli/*/graceful-fs/*" -exec sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' {} \; 2>/dev/null || true
-          find "$(npm root -g)/gitbook-cli" -name "polyfills.js" -path "*/graceful-fs/*" -exec sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' {} \; 2>/dev/null || true
-          echo "Patched graceful-fs files after gitbook-cli install"
-
-      - name: Install GitBook plugins
+      - name: Build MkDocs
         working-directory: docs
         run: |
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-          nvm use 14.21.3
-          export PATH="$NVM_DIR/versions/node/v14.21.3/bin:$PATH"
-          echo "Using Node version: $(node --version)"
-          echo "Node path: $(which node)"
-          
-          # CRITICAL: Patch graceful-fs RIGHT before gitbook install
-          # gitbook-cli uses Node 20's npm internally, so we must patch its graceful-fs
-          echo "Patching graceful-fs in Node 20 before gitbook install..."
-          GFS_FILE="/opt/hostedtoolcache/node/20.19.5/x64/lib/node_modules/gitbook-cli/node_modules/npm/node_modules/graceful-fs/polyfills.js"
-          
-          # The file might not exist yet, so we'll patch it when it gets created
-          # First, create a wrapper script that patches on-the-fly
-          cat > /tmp/patch-graceful-fs.sh << 'EOF'
-#!/bin/bash
-GFS_FILE="/opt/hostedtoolcache/node/20.19.5/x64/lib/node_modules/gitbook-cli/node_modules/npm/node_modules/graceful-fs/polyfills.js"
-if [ -f "$GFS_FILE" ]; then
-  echo "Patching graceful-fs file..."
-  sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' "$GFS_FILE"
-  echo "Patched: $GFS_FILE"
-fi
-EOF
-          chmod +x /tmp/patch-graceful-fs.sh
-          
-          # Try to patch any existing files
-          find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/graceful-fs/*" -exec sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' {} \; 2>/dev/null || true
-          
-          echo "Installing GitBook plugins..."
-          # Run gitbook install with retry logic that patches on failure
-          gitbook install 2>&1 | tee /tmp/gitbook-install.log || {
-            echo "GitBook install failed, attempting to patch and retry..."
-            # Patch the specific file mentioned in the error
-            GFS_FILE="/opt/hostedtoolcache/node/20.19.5/x64/lib/node_modules/gitbook-cli/node_modules/npm/node_modules/graceful-fs/polyfills.js"
-            if [ -f "$GFS_FILE" ]; then
-              echo "Patching $GFS_FILE..."
-              sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' "$GFS_FILE"
-              echo "Retrying gitbook install..."
-              gitbook install
-            else
-              echo "Could not find graceful-fs file to patch"
-              cat /tmp/gitbook-install.log
-              exit 1
-            fi
-          }
-          echo "GitBook plugins installed successfully"
-
-      - name: Build GitBook
-        working-directory: docs
-        run: |
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-          nvm use 14.21.3
-          export PATH="$NVM_DIR/versions/node/v14.21.3/bin:$PATH"
-          echo "Using Node version: $(node --version)"
-          echo "Node path: $(which node)"
-          if [[ ! "$(node --version)" =~ ^v14 ]]; then
-            echo "ERROR: Not using Node 14! Got $(node --version)"
-            exit 1
-          fi
-          echo "Building GitBook documentation..."
-          gitbook build . _book
-          echo "GitBook build completed"
-          ls -la _book/ | head -10
+          mkdocs build --site-dir ../_site
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -166,8 +48,9 @@ EOF
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'docs/_book'
+          path: '_site'
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
