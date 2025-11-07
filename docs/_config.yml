@@ -1,0 +1,44 @@
+# Jekyll configuration for GitHub Pages
+title: GCP Billing Agent Documentation
+description: Complete documentation for the GCP Billing Agent Gen AI solution
+url: https://olivierizad-lab.github.io/gcp-billing-ai
+baseurl: ""
+
+# Build settings
+theme: minima
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+
+# Exclude files from processing
+exclude:
+  - README.md
+  - DEPLOYMENT_SIMPLE.md
+  - FIREBASE_AUTH_SETUP.md
+  - GITBOOK_SETUP.md
+  - GITHUB_PAGES_FIX.md
+  - GITHUB_PAGES_SETUP.md
+  - IAP_DEPLOYMENT.md
+  - QUICKSTART.md
+  - QUICK_START.md
+  - README-SIMPLE.md
+  - SECURITY_DOMAIN_RESTRICTIONS.md
+  - SECURITY_IMPROVEMENTS.md
+  - SECURITY_QUICK_REFERENCE.md
+  - SUMMARY.md
+  - TROUBLESHOOTING_403.md
+  - cleanup_history_instructions.md
+  - agents/agent.md
+  - agents/asl_agent.md
+  - mkdocs.yml
+  - book.json
+
+# Navigation
+navigation:
+  - title: Home
+    url: /
+  - title: Getting Started
+    url: /START_HERE.html
+  - title: Architecture
+    url: /architecture.html
+
