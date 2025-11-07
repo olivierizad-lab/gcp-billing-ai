@@ -1,0 +1,75 @@
+site_name: GCP Billing Agent Documentation
+site_description: Complete documentation for the GCP Billing Agent Gen AI solution
+site_author: ASL Class
+site_url: https://olivierizad-lab.github.io/gcp-billing-ai/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocs-mermaid2-plugin
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Home: DOCUMENTATION-INDEX.md
+  - Getting Started:
+    - Start Here: START_HERE.md
+    - Getting Started: GETTING_STARTED.md
+    - Architecture: architecture.md
+  - Deployment:
+    - Automated Deployment: AUTOMATED_DEPLOYMENT.md
+    - Cloud Run Deployment: DEPLOYMENT_CLOUD_RUN.md
+    - Deployment Overview: DEPLOYMENT.md
+    - Backend Deployment: DEPLOYMENT_BACKEND.md
+    - Frontend Deployment: DEPLOYMENT_FRONTEND.md
+    - Deployment FAQ: DEPLOYMENT_FAQ.md
+  - Authentication & Security:
+    - Authentication Setup: AUTHENTICATION_SETUP.md
+    - Security: SECURITY.md
+  - Agents:
+    - Agent Overview: agents/
+    - bq_agent_mick: agents/bq_agent_mick.md
+    - bq_agent: agents/bq_agent.md
+    - bq_agent_mick Deployment: agents/bq_agent_mick_deployment.md
+    - bq_agent_mick Usage: agents/bq_agent_mick_usage.md
+    - Deployment Automation: agents/deployment_automation.md
+    - Deployment Management: agents/deployment_management.md
+    - Session Management: agents/session_management.md
+  - Solution Documentation:
+    - Gen AI Solution: GEN_AI_SOLUTION.md
+  - Testing:
+    - Testing History: TESTING_HISTORY.md
+    - Test Documentation: tests/tests.md
+
