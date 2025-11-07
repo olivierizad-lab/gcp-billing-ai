@@ -28,89 +28,53 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 14
-        uses: actions/setup-node@v4
-        with:
-          node-version: '14.21.3'
-          check-latest: false
-
-      - name: Verify Node.js version
+      - name: Setup Node.js 14 using nvm
         run: |
+          # Use nvm to install and use Node.js 14
+          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm install 14
+          nvm use 14
           echo "Node version: $(node --version)"
           echo "NPM version: $(npm --version)"
-          echo "NPM root: $(npm root -g)"
-          if [[ ! "$(node --version)" =~ ^v14 ]]; then
-            echo "ERROR: Expected Node.js 14, but got $(node --version)"
-            exit 1
-          fi
+          echo "NVM_DIR=$NVM_DIR" >> $GITHUB_ENV
+          echo "[ -s \"$NVM_DIR/nvm.sh\" ] && \\\. \"$NVM_DIR/nvm.sh\"" >> $GITHUB_ENV
+          echo "nvm use 14" >> $GITHUB_ENV
 
-      - name: Install GitBook CLI
+      - name: Install GitBook CLI with Node 14
         run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm use 14
+          echo "Using Node version: $(node --version)"
           echo "Installing GitBook CLI..."
           npm install -g gitbook-cli
           echo "GitBook CLI installed"
-
-      - name: Patch graceful-fs before GitBook install
-        run: |
-          echo "Patching graceful-fs polyfills..."
-          echo "Node version: $(node --version)"
-          NODE_VERSION=$(node --version | sed 's/v//')
-          echo "Searching for polyfills.js files..."
-          
-          # Patch all graceful-fs polyfills we can find
-          find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/graceful-fs/*" 2>/dev/null | while read file; do
-            if [ -f "$file" ]; then
-              echo "Patching: $file"
-              # Create backup
-              cp "$file" "$file.backup" || true
-              # Fix the problematic line
-              sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' "$file" || true
-              echo "Patched: $file"
-            fi
-          done
-          
-          # Also try the npm root location
-          if [ -d "$(npm root -g)/gitbook-cli" ]; then
-            find "$(npm root -g)/gitbook-cli" -name "polyfills.js" -path "*/graceful-fs/*" 2>/dev/null | while read file; do
-              if [ -f "$file" ]; then
-                echo "Patching npm root file: $file"
-                cp "$file" "$file.backup" || true
-                sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' "$file" || true
-              fi
-            done
-          fi
-          
-          echo "Finished patching graceful-fs files"
+          gitbook --version || echo "GitBook version check"
 
       - name: Install GitBook plugins
         working-directory: docs
         run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm use 14
+          echo "Using Node version: $(node --version)"
           echo "Installing GitBook plugins..."
-          # Patch on-the-fly if needed during install
-          gitbook install 2>&1 | tee /tmp/gitbook-install.log || {
-            echo "GitBook install failed, checking logs..."
-            cat /tmp/gitbook-install.log
-            # Try to patch and retry if error is graceful-fs related
-            if grep -q "graceful-fs" /tmp/gitbook-install.log || grep -q "cb.apply" /tmp/gitbook-install.log; then
-              echo "Graceful-fs error detected, patching and retrying..."
-              find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/graceful-fs/*" -exec sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' {} \; 2>/dev/null || true
-              gitbook install
-            else
-              exit 1
-            fi
-          }
+          gitbook install
           echo "GitBook plugins installed successfully"
 
       - name: Build GitBook
         working-directory: docs
         run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm use 14
+          echo "Using Node version: $(node --version)"
           echo "Building GitBook documentation..."
-          gitbook build . _book || {
-            echo "GitBook build failed, showing error..."
-            exit 1
-          }
+          gitbook build . _book
           echo "GitBook build completed"
-          ls -la _book/ | head -10 || echo "Build directory not found"
+          ls -la _book/ | head -10
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
