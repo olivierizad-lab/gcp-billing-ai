@@ -1,6 +1,6 @@
 # GCP Billing AI - Google ADK Agent Solutions
 
-> 📚 **📖 [View Full Documentation →](https://olivierizad-lab.github.io/gcp-billing-ai/)** 📚
+> 📚 **📖 [View Full Documentation](https://olivierizad-lab.github.io/gcp-billing-ai/)** - Complete documentation with architecture, deployment guides, and more
 
 This repository contains multiple BigQuery agent implementations using Google's Agent Development Kit (ADK) for analyzing GCP billing data.
 

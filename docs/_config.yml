@@ -8,7 +8,7 @@ baseurl: /gcp-billing-ai
 index: index.md
 
 # Build settings
-# theme: minima  # Temporarily disabled to ensure index.md is served
+theme: minima
 plugins:
   - jekyll-feed
   - jekyll-sitemap
