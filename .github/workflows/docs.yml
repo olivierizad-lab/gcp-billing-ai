@@ -31,7 +31,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '16'
+          node-version: '14'
 
       - name: Debug - Show Node version
         run: |
@@ -52,21 +52,24 @@ jobs:
           find $(npm root -g)/gitbook-cli -name "polyfills.js" -path "*/graceful-fs/*" 2>/dev/null | head -5 || echo "No polyfills.js found"
           find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/graceful-fs/*" 2>/dev/null | head -5 || echo "No polyfills.js found in Node installation"
 
-      - name: Fix graceful-fs compatibility for Node.js 16+
+      - name: Fix graceful-fs compatibility for Node.js
         run: |
           echo "Fixing graceful-fs compatibility..."
-          # Try multiple locations
-          GFS_POLYFILL=$(find $(npm root -g)/gitbook-cli -name "polyfills.js" -path "*/graceful-fs/*" 2>/dev/null | head -1)
-          if [ -z "$GFS_POLYFILL" ]; then
-            GFS_POLYFILL=$(find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/graceful-fs/*" 2>/dev/null | head -1)
-          fi
-          if [ -n "$GFS_POLYFILL" ]; then
+          echo "Node version: $(node --version)"
+          # Fix the specific file that's causing the issue
+          GFS_POLYFILL="/opt/hostedtoolcache/node/$(node --version | sed 's/v//')/x64/lib/node_modules/gitbook-cli/node_modules/npm/node_modules/graceful-fs/polyfills.js"
+          if [ -f "$GFS_POLYFILL" ]; then
             echo "Found polyfill at: $GFS_POLYFILL"
             cp "$GFS_POLYFILL" "$GFS_POLYFILL.backup"
-            sed -i 's/cb\.apply(this, arguments)/if (typeof cb === "function") cb.apply(this, arguments)/g' "$GFS_POLYFILL" || true
+            sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb && typeof cb === "function") cb.apply(this, arguments)/g' "$GFS_POLYFILL" || true
             echo "Polyfill patched"
           else
-            echo "Warning: Could not find polyfills.js to patch"
+            echo "Warning: Could not find polyfills.js at expected location"
+            echo "Searching in alternative locations..."
+            find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/graceful-fs/*" 2>/dev/null | while read file; do
+              echo "Fixing: $file"
+              sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb && typeof cb === "function") cb.apply(this, arguments)/g' "$file" || true
+            done
           fi
 
       - name: Install GitBook plugins
