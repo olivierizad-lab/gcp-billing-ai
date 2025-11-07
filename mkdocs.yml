@@ -40,11 +40,12 @@ markdown_extensions:
       anchor_linenums: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.superfences
+  # Mermaid support disabled until plugin is fixed
+  # custom_fences:
+  #   - name: mermaid
+  #     class: mermaid
+  #     format: !!python/name:pymdownx.superfences.fence_code_format
 
 nav:
   - Home: DOCUMENTATION-INDEX.md
