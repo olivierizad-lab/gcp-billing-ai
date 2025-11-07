@@ -146,8 +146,8 @@ function App() {
   const messagesEndRef = useRef(null)
   const abortControllerRef = useRef(null)
 
-  // GitBook documentation URL - can be set via environment variable or use default
-  const GITBOOK_BASE_URL = import.meta.env.VITE_GITBOOK_URL || 'https://your-org.gitbook.io/gcp-billing-agent'
+  // Documentation URL - defaults to GitHub Pages, can be overridden via environment variable
+  const GITBOOK_BASE_URL = import.meta.env.VITE_GITBOOK_URL || 'https://olivierizad-lab.github.io/gcp-billing-ai'
   
   // Documentation links - URLs match GitBook structure from SUMMARY.md
   // GitBook generates URLs from file names (without .md, lowercase, hyphens for spaces/underscores)
@@ -160,8 +160,8 @@ function App() {
     { title: 'Troubleshooting', url: `${GITBOOK_BASE_URL}/deployment/deployment-faq`, icon: BookOpen },
   ]
   
-  // If GitBook URL is not set, disable help links
-  const isGitBookConfigured = GITBOOK_BASE_URL !== 'https://your-org.gitbook.io/gcp-billing-agent'
+  // Documentation is always configured (has a default URL), but check if it's explicitly empty
+  const isGitBookConfigured = GITBOOK_BASE_URL && GITBOOK_BASE_URL.trim() !== ''
 
   // Check for existing auth token on mount
   useEffect(() => {
@@ -633,11 +633,6 @@ function App() {
                     <BookOpen size={16} />
                     <span>Documentation</span>
                   </div>
-                  {!isGitBookConfigured && (
-                    <div className="help-dropdown-notice">
-                      GitBook URL not configured. See docs/GITBOOK_SETUP.md
-                    </div>
-                  )}
                   <div className="help-dropdown-links">
                     {helpLinks.map((link, index) => (
                       <a
@@ -647,7 +642,6 @@ function App() {
                         rel="noopener noreferrer"
                         className="help-link"
                         onClick={() => setShowHelpMenu(false)}
-                        style={!isGitBookConfigured ? { opacity: 0.6, pointerEvents: 'none' } : {}}
                       >
                         <link.icon size={16} />
                         <span>{link.title}</span>
