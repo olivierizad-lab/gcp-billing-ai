@@ -50,6 +50,25 @@ jobs:
             exit 1
           fi
 
+      - name: Patch graceful-fs in Node 20 (used by gitbook-cli)
+        run: |
+          echo "Patching graceful-fs in Node 20 installation (used by gitbook-cli)..."
+          # Patch the specific file that gitbook-cli uses
+          GFS_FILE="/opt/hostedtoolcache/node/20.19.5/x64/lib/node_modules/gitbook-cli/node_modules/npm/node_modules/graceful-fs/polyfills.js"
+          if [ -f "$GFS_FILE" ]; then
+            echo "Found graceful-fs file at: $GFS_FILE"
+            cp "$GFS_FILE" "$GFS_FILE.backup"
+            # Fix the problematic line
+            sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' "$GFS_FILE"
+            echo "Patched graceful-fs file"
+          else
+            echo "File not found, searching for it..."
+            find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/graceful-fs/*" 2>/dev/null | head -5
+            # Patch all we find
+            find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/graceful-fs/*" -exec sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' {} \; 2>/dev/null || true
+            echo "Patched all found graceful-fs files"
+          fi
+
       - name: Install GitBook CLI with Node 14
         run: |
           export NVM_DIR="$HOME/.nvm"
@@ -66,6 +85,12 @@ jobs:
           npm install -g gitbook-cli
           echo "GitBook CLI installed"
           gitbook --version || echo "GitBook version check"
+          
+          # After installation, patch graceful-fs in gitbook-cli's npm
+          echo "Patching graceful-fs after gitbook-cli installation..."
+          find /opt/hostedtoolcache/node -name "polyfills.js" -path "*/gitbook-cli/*/graceful-fs/*" -exec sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' {} \; 2>/dev/null || true
+          find "$(npm root -g)/gitbook-cli" -name "polyfills.js" -path "*/graceful-fs/*" -exec sed -i 's/if (cb) cb\.apply(this, arguments)/if (cb \&\& typeof cb === "function") cb.apply(this, arguments)/g' {} \; 2>/dev/null || true
+          echo "Patched graceful-fs files after gitbook-cli install"
 
       - name: Install GitBook plugins
         working-directory: docs
