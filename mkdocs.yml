@@ -6,6 +6,27 @@ site_url: https://olivierizad-lab.github.io/gcp-billing-ai/
 # Documentation files are in the docs/ directory
 docs_dir: docs
 
+# Exclude obsolete files from build
+exclude_docs:
+  - README.md
+  - DEPLOYMENT_SIMPLE.md
+  - FIREBASE_AUTH_SETUP.md
+  - GITBOOK_SETUP.md
+  - GITHUB_PAGES_FIX.md
+  - GITHUB_PAGES_SETUP.md
+  - IAP_DEPLOYMENT.md
+  - QUICKSTART.md
+  - QUICK_START.md
+  - README-SIMPLE.md
+  - SECURITY_DOMAIN_RESTRICTIONS.md
+  - SECURITY_IMPROVEMENTS.md
+  - SECURITY_QUICK_REFERENCE.md
+  - SUMMARY.md
+  - TROUBLESHOOTING_403.md
+  - cleanup_history_instructions.md
+  - agents/agent.md
+  - agents/asl_agent.md
+
 theme:
   name: material
   palette:
@@ -64,7 +85,6 @@ nav:
     - Authentication Setup: AUTHENTICATION_SETUP.md
     - Security: SECURITY.md
   - Agents:
-    - Agent Overview: agents/
     - bq_agent_mick: agents/bq_agent_mick.md
     - bq_agent: agents/bq_agent.md
     - bq_agent_mick Deployment: agents/bq_agent_mick_deployment.md
