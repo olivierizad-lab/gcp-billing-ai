@@ -12,6 +12,7 @@ Welcome to the comprehensive documentation for the GCP Billing Agent Application
 * **🚀 Deployment Guide** - Step-by-step deployment instructions
 * **🔒 Authentication Setup** - Firestore authentication configuration
 * **📊 Agent Documentation** - Complete agent implementation details
+* **📈 Metrics Dashboard** - Repository analytics and AI effectiveness metrics
 * **🔧 Troubleshooting** - Common issues and solutions
 
 ## 🎯 **Key Features**

@@ -37,6 +37,10 @@
 
 * [Gen AI Solution](GEN_AI_SOLUTION.md)
 
+## Analytics & Metrics
+
+* [Code Metrics & AI Effectiveness](METRICS.md)
+
 ## Testing
 
 * [Testing History](TESTING_HISTORY.md)

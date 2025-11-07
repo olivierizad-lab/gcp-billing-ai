@@ -26,6 +26,7 @@ Welcome to the comprehensive documentation for the GCP Billing Agent Application
 * **[🚀 Deployment Guide](AUTOMATED_DEPLOYMENT.html)** - Step-by-step deployment instructions
 * **[🔒 Authentication Setup](AUTHENTICATION_SETUP.html)** - Firestore authentication configuration
 * **[📊 Agent Documentation](agents/bq_agent.html)** - Complete agent implementation details
+* **[📈 Metrics Dashboard](METRICS.html)** - Code metrics, AI effectiveness and repository analytics
 * **[🔧 Troubleshooting](TROUBLESHOOTING_403.html)** - Common issues and solutions
 
 ## 🎯 **Key Features**
