@@ -29,6 +29,35 @@
     <meta name="twitter:title" content="GCP Billing Agent - Agent Engine Chat" />
     <meta name="twitter:description" content="Interactive chat interface for analyzing GCP billing data using Google's Agent Development Kit and Vertex AI Agent Engine" />
     <meta name="twitter:image" content="/og-image.png" />
+    
+    <!-- Inject absolute URLs for OG images at page load (for crawlers that execute JS) -->
+    <script>
+      (function() {
+        const baseUrl = window.location.origin;
+        const ogImage = baseUrl + '/og-image.png';
+        
+        // Update og:image meta tag
+        const ogImageMeta = document.querySelector('meta[property="og:image"]');
+        if (ogImageMeta) {
+          ogImageMeta.setAttribute('content', ogImage);
+        }
+        
+        // Update twitter:image meta tag
+        const twitterImageMeta = document.querySelector('meta[name="twitter:image"]');
+        if (twitterImageMeta) {
+          twitterImageMeta.setAttribute('content', ogImage);
+        }
+        
+        // Update og:url
+        let ogUrlMeta = document.querySelector('meta[property="og:url"]');
+        if (!ogUrlMeta) {
+          ogUrlMeta = document.createElement('meta');
+          ogUrlMeta.setAttribute('property', 'og:url');
+          document.head.appendChild(ogUrlMeta);
+        }
+        ogUrlMeta.setAttribute('content', baseUrl + window.location.pathname);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
