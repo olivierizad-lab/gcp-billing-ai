@@ -8,6 +8,10 @@
 <link rel="icon" type="image/png" sizes="512x512" href="{{ '/assets/favicon-512.png' | relative_url }}">
 <link rel="alternate" type="application/rss+xml" title="{{ site.title | escape }}" href="{{ "/feed.xml" | relative_url }}">
 
+<!-- Mermaid support for architecture diagrams -->
+<script defer src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script defer src="{{ '/assets/js/mermaid-init.js' | relative_url }}"></script>
+
 <!-- Open Graph / Facebook meta tags for rich link previews -->
 <meta property="og:type" content="website" />
 <meta property="og:url" content="{{ page.url | absolute_url }}" />
