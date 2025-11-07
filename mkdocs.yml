@@ -32,7 +32,8 @@ theme:
 
 plugins:
   - search
-  - mkdocs-mermaid2-plugin
+  # Mermaid diagrams - temporarily disabled until plugin installation is fixed
+  # - mkdocs-mermaid2-plugin
 
 markdown_extensions:
   - pymdownx.highlight:
